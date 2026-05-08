@@ -70,20 +70,33 @@ export const SplitToolClient = () => {
     let cancelled = false;
 
     const load = async () => {
-      const count = await getPageCount(bytes);
-      if (cancelled) {
-        return;
-      }
-      setPageCount(count);
+      try {
+        const count = await getPageCount(bytes);
+        if (cancelled) {
+          return;
+        }
+        setPageCount(count);
 
-      const nextThumbs: string[] = [];
-      for (let page = 1; page <= count; page += 1) {
-        nextThumbs.push(await renderThumbnail(bytes, page));
-      }
+        const nextThumbs: string[] = [];
+        for (let page = 1; page <= count; page += 1) {
+          nextThumbs.push(await renderThumbnail(bytes, page));
+        }
 
-      if (!cancelled) {
-        setThumbnails(nextThumbs);
-        setSelectedPages(new Set(Array.from({ length: count }, (_, index) => index)));
+        if (!cancelled) {
+          setThumbnails(nextThumbs);
+          setSelectedPages(new Set(Array.from({ length: count }, (_, index) => index)));
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        setPageCount(0);
+        setThumbnails([]);
+        setSelectedPages(new Set());
+        toast.error(
+          "Could not read PDF pages",
+          error instanceof Error ? error.message : "Please try another file."
+        );
       }
     };
 
@@ -91,7 +104,7 @@ export const SplitToolClient = () => {
     return () => {
       cancelled = true;
     };
-  }, [bytes]);
+  }, [bytes, toast]);
 
   const ranges = useMemo(() => parseRanges(rangesInput), [rangesInput]);
   const rangeValid = useMemo(() => rangesAreValid(ranges, pageCount), [pageCount, ranges]);

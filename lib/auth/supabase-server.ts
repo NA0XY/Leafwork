@@ -1,6 +1,7 @@
-﻿import { createServerClient } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import type { Session, User } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { logger } from "@/lib/utils/logger";
 
 type SupabaseCookieOptions = {
   domain?: string;
@@ -46,9 +47,17 @@ export const getSession = async (): Promise<Session | null> => {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase.auth.getSession();
   if (error) {
-    console.error("get_session_failed", error);
+    logger.error("auth.server.get_session_failed", {
+      error
+    });
     return null;
   }
+
+  logger.debug("auth.server.get_session_success", {
+    hasSession: Boolean(data.session),
+    userId: data.session?.user?.id ?? null
+  });
+
   return data.session;
 };
 
@@ -56,8 +65,19 @@ export const getUser = async (): Promise<User | null> => {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
   if (error) {
-    console.error("get_user_failed", error);
+    if (error.message !== "Auth session missing!") {
+      logger.error("auth.server.get_user_failed", {
+        error
+      });
+    } else {
+      logger.debug("auth.server.get_user_missing_session");
+    }
     return null;
   }
+
+  logger.debug("auth.server.get_user_success", {
+    userId: data.user?.id ?? null
+  });
+
   return data.user;
 };

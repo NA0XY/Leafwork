@@ -1,23 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { enforceGroqAccess } from "@/lib/ai/groq-access";
-import { streamCompletion, estimateTokens } from "@/lib/ai/groq";
+import { nonStreamCompletion, estimateTokens } from "@/lib/ai/groq";
+import { AI_INPUT_CHAR_LIMIT, clampTextForAI } from "@/lib/ai/input-limits";
 import { PDF_TO_WORD_SYSTEM } from "@/lib/ai/prompts";
 import { getSupabaseServiceClient } from "@/lib/auth/supabase-service";
 import { pdfToWordInputSchema, sanitizeHtmlTags, validateAndParse } from "@/lib/validations/api";
 import { jsonError, parseJsonBody } from "@/lib/utils/api";
+import { logger } from "@/lib/utils/logger";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const PDF_TO_WORD_MAX_OUTPUT_TOKENS = 1200;
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const startedAt = Date.now();
+  logger.info("api.ai.pdf_to_word.start", {
+    requestId,
+    path: request.nextUrl.pathname,
+    method: request.method
+  });
 
   const access = await enforceGroqAccess(request, requestId, "pdf_to_word");
   if (!access.ok) {
+    logger.warn("api.ai.pdf_to_word.blocked", {
+      requestId
+    });
     return access.response;
   }
 
   const parsedBody = await parseJsonBody<unknown>(request);
   if ("error" in parsedBody) {
+    logger.warn("api.ai.pdf_to_word.invalid_json", {
+      requestId,
+      error: parsedBody.error
+    });
     return jsonError(400, {
       code: "INVALID_JSON",
       message: parsedBody.error,
@@ -27,6 +42,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const validated = validateAndParse(pdfToWordInputSchema, parsedBody.data);
   if ("error" in validated) {
+    logger.warn("api.ai.pdf_to_word.invalid_payload", {
+      requestId,
+      error: validated.error
+    });
     return jsonError(400, {
       code: "INVALID_PAYLOAD",
       message: validated.error,
@@ -35,25 +54,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const cleanedText = sanitizeHtmlTags(validated.data.extractedText);
+  const clamped = clampTextForAI(cleanedText, AI_INPUT_CHAR_LIMIT.pdfToWord);
 
   try {
-    const encoder = new TextEncoder();
-    const tokenCount = estimateTokens(cleanedText);
+    if (clamped.truncated) {
+      logger.warn("api.ai.pdf_to_word.input_truncated", {
+        requestId,
+        originalLength: clamped.originalLength,
+        clampedLength: clamped.clampedLength
+      });
+    }
 
-    const stream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        try {
-          for await (const chunk of streamCompletion(PDF_TO_WORD_SYSTEM, cleanedText, {
-            temperature: 0.1,
-            maxTokens: 4096
-          })) {
-            controller.enqueue(encoder.encode(chunk));
-          }
-          controller.close();
-        } catch (error) {
-          controller.error(error);
-        }
-      }
+    logger.debug("api.ai.pdf_to_word.ai_call", {
+      requestId,
+      userId: access.userId,
+      filename: validated.data.filename,
+      pageCount: validated.data.pageCount,
+      extractedLength: validated.data.extractedText.length,
+      cleanedLength: cleanedText.length,
+      aiInputLength: clamped.text.length,
+      truncated: clamped.truncated
+    });
+
+    const tokenCount = estimateTokens(clamped.text);
+    const markdown = await nonStreamCompletion(PDF_TO_WORD_SYSTEM, clamped.text, {
+      temperature: 0.1,
+      maxTokens: PDF_TO_WORD_MAX_OUTPUT_TOKENS
     });
 
     const durationMs = Date.now() - startedAt;
@@ -67,21 +93,59 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           duration_ms: durationMs,
           ai_tokens_used: tokenCount
         });
+        logger.debug("api.ai.pdf_to_word.usage_log.inserted", {
+          requestId,
+          userId: access.userId,
+          tokenCount,
+          durationMs
+        });
       }
     } catch (usageError) {
-      console.error("usage_log_insert_failed", usageError);
+      logger.error("api.ai.pdf_to_word.usage_log.error", {
+        requestId,
+        userId: access.userId,
+        error: usageError
+      });
     }
 
-    return new NextResponse(stream, {
+    logger.info("api.ai.pdf_to_word.success", {
+      requestId,
+      userId: access.userId,
+      tokenCount,
+      durationMs
+    });
+
+    return new NextResponse(markdown, {
       status: 200,
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
         "Cache-Control": "no-store",
-        "x-request-id": requestId
+        "x-request-id": requestId,
+        "x-ai-input-truncated": clamped.truncated ? "1" : "0"
       }
     });
   } catch (error) {
-    console.error("pdf_to_word_route_error", { requestId, error });
+    const maybeStatus = typeof error === "object" && error && "status" in error ? Number((error as { status?: number }).status) : null;
+    if (maybeStatus === 413 || maybeStatus === 429) {
+      logger.warn("api.ai.pdf_to_word.groq_limit", {
+        requestId,
+        userId: access.userId,
+        durationMs: Date.now() - startedAt,
+        error
+      });
+      return jsonError(429, {
+        code: "AI_RATE_LIMIT",
+        message: "AI is temporarily rate-limited. Please retry in a few seconds.",
+        requestId
+      });
+    }
+
+    logger.error("api.ai.pdf_to_word.error", {
+      requestId,
+      userId: access.userId,
+      durationMs: Date.now() - startedAt,
+      error
+    });
     return jsonError(502, {
       code: "GROQ_FAILURE",
       message: "AI conversion service failed",

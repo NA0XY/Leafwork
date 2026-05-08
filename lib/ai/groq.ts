@@ -1,4 +1,5 @@
-﻿import Groq from "groq-sdk";
+import Groq from "groq-sdk";
+import { logger } from "@/lib/utils/logger";
 
 type CompletionOptions = {
   temperature?: number;
@@ -9,15 +10,18 @@ let groqClient: Groq | null = null;
 
 export const createGroqClient = (): Groq => {
   if (groqClient) {
+    logger.debug("groq.client.reuse");
     return groqClient;
   }
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
+    logger.error("groq.client.missing_api_key");
     throw new Error("GROQ_API_KEY is required");
   }
 
   groqClient = new Groq({ apiKey });
+  logger.info("groq.client.created");
   return groqClient;
 };
 
@@ -41,10 +45,23 @@ export async function* streamCompletion(
   userContent: string,
   options: CompletionOptions = {}
 ): AsyncIterable<string> {
+  const startedAt = Date.now();
   const client = createGroqClient();
   const chunks = chunkByTokens(userContent);
+  logger.info("groq.stream.start", {
+    chunkCount: chunks.length,
+    inputLength: userContent.length,
+    maxTokens: options.maxTokens ?? 4096,
+    temperature: options.temperature ?? 0.3
+  });
 
-  for (const chunk of chunks) {
+  for (const [index, chunk] of chunks.entries()) {
+    logger.debug("groq.stream.chunk.request", {
+      chunkIndex: index + 1,
+      chunkCount: chunks.length,
+      chunkLength: chunk.length
+    });
+
     const stream = await client.chat.completions.create({
       model: "llama-3.1-8b-instant",
       stream: true,
@@ -56,13 +73,26 @@ export async function* streamCompletion(
       ]
     });
 
+    let emittedChars = 0;
     for await (const part of stream) {
       const piece = part.choices[0]?.delta?.content;
       if (piece) {
+        emittedChars += piece.length;
         yield piece;
       }
     }
+
+    logger.debug("groq.stream.chunk.complete", {
+      chunkIndex: index + 1,
+      chunkCount: chunks.length,
+      emittedChars
+    });
   }
+
+  logger.info("groq.stream.complete", {
+    chunkCount: chunks.length,
+    durationMs: Date.now() - startedAt
+  });
 }
 
 export const nonStreamCompletion = async (
@@ -70,11 +100,24 @@ export const nonStreamCompletion = async (
   userContent: string,
   options: CompletionOptions = {}
 ): Promise<string> => {
+  const startedAt = Date.now();
   const client = createGroqClient();
   const chunks = chunkByTokens(userContent);
   const outputs: string[] = [];
+  logger.info("groq.completion.start", {
+    chunkCount: chunks.length,
+    inputLength: userContent.length,
+    maxTokens: options.maxTokens ?? 4096,
+    temperature: options.temperature ?? 0.3
+  });
 
-  for (const chunk of chunks) {
+  for (const [index, chunk] of chunks.entries()) {
+    logger.debug("groq.completion.chunk.request", {
+      chunkIndex: index + 1,
+      chunkCount: chunks.length,
+      chunkLength: chunk.length
+    });
+
     const response = await client.chat.completions.create({
       model: "llama-3.1-8b-instant",
       temperature: options.temperature ?? 0.3,
@@ -85,8 +128,21 @@ export const nonStreamCompletion = async (
       ]
     });
 
-    outputs.push(response.choices[0]?.message?.content ?? "");
+    const output = response.choices[0]?.message?.content ?? "";
+    outputs.push(output);
+    logger.debug("groq.completion.chunk.complete", {
+      chunkIndex: index + 1,
+      chunkCount: chunks.length,
+      outputLength: output.length
+    });
   }
 
-  return outputs.join("\n").trim();
+  const merged = outputs.join("\n").trim();
+  logger.info("groq.completion.complete", {
+    chunkCount: chunks.length,
+    outputLength: merged.length,
+    durationMs: Date.now() - startedAt
+  });
+
+  return merged;
 };

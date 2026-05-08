@@ -1,8 +1,7 @@
 "use client";
 
 import { createFileHash } from "@/lib/utils/file";
-
-type PdfJsModule = typeof import("pdfjs-dist");
+import { clonePdfBytes, loadPdfJs } from "@/lib/pdf/pdfjs";
 
 type CachedThumbnail = {
   dataUrl: string;
@@ -14,18 +13,6 @@ const MAX_CACHE_ITEMS = 200;
 
 const thumbnailCache = new Map<string, Map<number, CachedThumbnail>>();
 const cacheOrder: Array<{ fileHash: string; pageNumber: number }> = [];
-let pdfJsPromise: Promise<PdfJsModule> | null = null;
-
-const loadPdfJs = async (): Promise<PdfJsModule> => {
-  if (!pdfJsPromise) {
-    pdfJsPromise = import("pdfjs-dist").then((module) => {
-      module.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.min.mjs";
-      return module;
-    });
-  }
-
-  return pdfJsPromise;
-};
 
 const ensureNotAborted = (signal?: AbortSignal): void => {
   if (signal?.aborted) {
@@ -106,7 +93,8 @@ export const renderPage = async (
   ensureNotAborted(signal);
   const pdfjs = await loadPdfJs();
 
-  const loadingTask = pdfjs.getDocument({ data: bytes });
+  // PDF.js may transfer/detach TypedArray buffers internally; pass a fresh copy per load.
+  const loadingTask = pdfjs.getDocument({ data: clonePdfBytes(bytes) });
   const onAbort = () => {
     loadingTask.destroy();
   };
@@ -158,7 +146,7 @@ export const renderThumbnail = async (bytes: Uint8Array, pageNumber: number): Pr
   }
 
   const pdfjs = await loadPdfJs();
-  const loadingTask = pdfjs.getDocument({ data: bytes });
+  const loadingTask = pdfjs.getDocument({ data: clonePdfBytes(bytes) });
   const pdf = await loadingTask.promise;
 
   try {
@@ -188,7 +176,7 @@ export const renderThumbnail = async (bytes: Uint8Array, pageNumber: number): Pr
 
 export const getPageCount = async (bytes: Uint8Array): Promise<number> => {
   const pdfjs = await loadPdfJs();
-  const loadingTask = pdfjs.getDocument({ data: bytes });
+  const loadingTask = pdfjs.getDocument({ data: clonePdfBytes(bytes) });
   const pdf = await loadingTask.promise;
   try {
     return pdf.numPages;

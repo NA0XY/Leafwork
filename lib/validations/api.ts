@@ -5,7 +5,8 @@ import { isSafeFilename } from "@/lib/validations/file";
 const sanitizeText = (value: string): string =>
   value.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 
-const trimmedText = z.string().trim().max(50_000);
+const REQUEST_TEXT_MAX_CHARS = 1_000_000;
+const trimmedText = z.string().trim().max(REQUEST_TEXT_MAX_CHARS);
 
 const fileNameSchema = z
   .string()
@@ -19,17 +20,17 @@ export const pdfToWordInputSchema = z.object({
 });
 
 export const extractTableInputSchema = z.object({
-  tableText: trimmedText.min(5).max(20_000).transform((value) => sanitizeText(value)),
+  tableText: trimmedText.min(5).transform((value) => sanitizeText(value)),
   tableName: z.string().max(100).optional().transform((value) => value?.trim())
 });
 
 export const summarizeInputSchema = z.object({
-  extractedText: trimmedText.min(10).max(50_000).transform((value) => sanitizeText(value)),
+  extractedText: trimmedText.min(10).transform((value) => sanitizeText(value)),
   filename: fileNameSchema
 });
 
 export const detectPiiInputSchema = z.object({
-  extractedText: trimmedText.min(10).max(30_000).transform((value) => sanitizeText(value)),
+  extractedText: trimmedText.min(10).transform((value) => sanitizeText(value)),
   pageCount: z.number().int().min(1).max(500),
   filename: fileNameSchema
 });

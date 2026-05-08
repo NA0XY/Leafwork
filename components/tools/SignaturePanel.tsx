@@ -13,6 +13,59 @@ type SignaturePanelProps = {
 };
 
 const cursiveFonts = ["Pacifico", "Dancing Script", "Satisfy", "Great Vibes", "Kaushan Script"];
+const fontStylesheetHref =
+  "https://fonts.googleapis.com/css2?family=Pacifico&family=Dancing+Script:wght@400;700&family=Satisfy&family=Great+Vibes&family=Kaushan+Script&display=swap";
+
+const trimTransparentCanvas = (source: HTMLCanvasElement): HTMLCanvasElement => {
+  const context = source.getContext("2d");
+  if (!context) {
+    return source;
+  }
+
+  const { width, height } = source;
+  const { data } = context.getImageData(0, 0, width, height);
+
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const alpha = data[(y * width + x) * 4 + 3];
+      if (alpha > 0) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return source;
+  }
+
+  const padding = 6;
+  minX = Math.max(0, minX - padding);
+  minY = Math.max(0, minY - padding);
+  maxX = Math.min(width - 1, maxX + padding);
+  maxY = Math.min(height - 1, maxY + padding);
+
+  const cropWidth = maxX - minX + 1;
+  const cropHeight = maxY - minY + 1;
+
+  const trimmed = document.createElement("canvas");
+  trimmed.width = cropWidth;
+  trimmed.height = cropHeight;
+  const trimmedContext = trimmed.getContext("2d");
+  if (!trimmedContext) {
+    return source;
+  }
+
+  trimmedContext.drawImage(source, minX, minY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+  return trimmed;
+};
 
 export const SignaturePanel = ({ onSignatureReady }: SignaturePanelProps) => {
   const [mode, setMode] = useState<SignatureMode>("draw");
@@ -22,6 +75,23 @@ export const SignaturePanel = ({ onSignatureReady }: SignaturePanelProps) => {
   const [strokeWidth, setStrokeWidth] = useState(3);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const existing = document.querySelector<HTMLLinkElement>('link[data-signature-fonts="1"]');
+    if (existing) {
+      return;
+    }
+
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = fontStylesheetHref;
+    link.setAttribute("data-signature-fonts", "1");
+    document.head.appendChild(link);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -34,8 +104,6 @@ export const SignaturePanel = ({ onSignatureReady }: SignaturePanelProps) => {
       return;
     }
 
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
     context.strokeStyle = strokeColor;
     context.lineWidth = strokeWidth;
     context.lineJoin = "round";
@@ -52,7 +120,17 @@ export const SignaturePanel = ({ onSignatureReady }: SignaturePanelProps) => {
     if (!canvas) {
       return;
     }
-    onSignatureReady(canvas.toDataURL("image/png"));
+    const trimmed = trimTransparentCanvas(canvas);
+    onSignatureReady(trimmed.toDataURL("image/png"));
+  };
+
+  const ensureFontLoaded = async (fontName: string): Promise<void> => {
+    if (!("fonts" in document)) {
+      return;
+    }
+
+    await document.fonts.load(`64px "${fontName}"`);
+    await document.fonts.ready;
   };
 
   return (
@@ -137,8 +215,6 @@ export const SignaturePanel = ({ onSignatureReady }: SignaturePanelProps) => {
                 const context = canvas?.getContext("2d");
                 if (!canvas || !context) return;
                 context.clearRect(0, 0, canvas.width, canvas.height);
-                context.fillStyle = "#ffffff";
-                context.fillRect(0, 0, canvas.width, canvas.height);
               }}
             >
               Clear
@@ -167,7 +243,7 @@ export const SignaturePanel = ({ onSignatureReady }: SignaturePanelProps) => {
             {typedName}
           </p>
           <Button
-            onClick={() => {
+            onClick={async () => {
               const canvas = document.createElement("canvas");
               canvas.width = 640;
               canvas.height = 200;
@@ -175,12 +251,13 @@ export const SignaturePanel = ({ onSignatureReady }: SignaturePanelProps) => {
               if (!context) {
                 return;
               }
-              context.fillStyle = "#ffffff";
-              context.fillRect(0, 0, canvas.width, canvas.height);
+              await ensureFontLoaded(fontFamily);
               context.fillStyle = "#111111";
               context.font = `64px '${fontFamily}'`;
+              context.textBaseline = "middle";
               context.fillText(typedName, 20, 120);
-              onSignatureReady(canvas.toDataURL("image/png"));
+              const trimmed = trimTransparentCanvas(canvas);
+              onSignatureReady(trimmed.toDataURL("image/png"));
             }}
           >
             Use Typed Signature

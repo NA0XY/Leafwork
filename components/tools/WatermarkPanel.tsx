@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { ChevronLeft, ChevronRight, Image as ImageIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { PDFCanvas } from "@/components/canvas/PDFCanvas";
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
@@ -44,6 +44,7 @@ type WatermarkPanelProps = {
   progress: number;
   isProcessing: boolean;
   downloadComplete: boolean;
+  appliedCount: number;
   onRemoveFile: () => void;
   onTextWatermark: (input: {
     text: string;
@@ -52,8 +53,13 @@ type WatermarkPanelProps = {
     rotation: number;
     position: WatermarkPosition;
     colorHex: string;
+    pageNumber: number;
   }) => Promise<void>;
-  onImageWatermark: (imageData: string, input: { opacity: number; rotation: number; position: WatermarkPosition }) => Promise<void>;
+  onImageWatermark: (
+    imageData: string,
+    input: { opacity: number; rotation: number; position: WatermarkPosition; imageSize: number; pageNumber: number }
+  ) => Promise<void>;
+  onDownload: () => void;
 };
 
 export const WatermarkPanel = ({
@@ -62,9 +68,11 @@ export const WatermarkPanel = ({
   progress,
   isProcessing,
   downloadComplete,
+  appliedCount,
   onRemoveFile,
   onTextWatermark,
-  onImageWatermark
+  onImageWatermark,
+  onDownload
 }: WatermarkPanelProps) => {
   const [tab, setTab] = useState<"text" | "image">("text");
   const [text, setText] = useState("CONFIDENTIAL");
@@ -100,19 +108,6 @@ export const WatermarkPanel = ({
       cancelled = true;
     };
   }, [bytes]);
-
-  const colorRgb = useMemo(() => {
-    const match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(colorHex);
-    if (!match) {
-      return { r: 0, g: 0, b: 0 };
-    }
-
-    return {
-      r: parseInt(match[1] ?? "00", 16) / 255,
-      g: parseInt(match[2] ?? "00", 16) / 255,
-      b: parseInt(match[3] ?? "00", 16) / 255
-    };
-  }, [colorHex]);
 
   return (
     <div className="space-y-4">
@@ -285,7 +280,8 @@ export const WatermarkPanel = ({
                     opacity: opacity / 100,
                     rotation,
                     position,
-                    colorHex
+                    colorHex,
+                    pageNumber
                   });
                   return;
                 }
@@ -294,15 +290,21 @@ export const WatermarkPanel = ({
                   void onImageWatermark(imageData, {
                     opacity: opacity / 100,
                     rotation,
-                    position
+                    position,
+                    imageSize,
+                    pageNumber
                   });
                 }
               }}
             >
-              Apply watermark
+              Place watermark on this page
+            </Button>
+            <Button type="button" variant="secondary" disabled={appliedCount < 1} onClick={onDownload}>
+              Download Watermarked PDF
             </Button>
 
             {downloadComplete ? <Badge tone="success">Downloaded OK</Badge> : null}
+            {appliedCount > 0 ? <Badge>{appliedCount} placement(s)</Badge> : null}
           </div>
         </div>
 

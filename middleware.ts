@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 
 import { applyRateLimit, authLimiter, generalLimiter } from "@/lib/rate-limit/upstash";
 import { refreshSupabaseSession } from "@/lib/auth/middleware-helpers";
+import { logger } from "@/lib/utils/logger";
 
 type LimitConfig = {
   limit: number;
@@ -26,8 +27,17 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const startedAt = Date.now();
   const requestId = nanoid(12);
   const pathname = request.nextUrl.pathname;
+  const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.ip || "0.0.0.0";
 
   try {
+    logger.debug("middleware.request.start", {
+      requestId,
+      method: request.method,
+      path: pathname,
+      ip: clientIp,
+      userAgent: request.headers.get("user-agent")
+    });
+
     const { response, userId } = await refreshSupabaseSession(request);
     const isAuthenticated = Boolean(userId);
     const isApiRoute = pathname.startsWith("/api");
@@ -38,7 +48,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     if (isApiRoute && !isAiRoute) {
       const identifier = isAuthenticated
         ? `user:${userId}:${pathname}`
-        : `ip:${request.ip ?? "0.0.0.0"}:${pathname}`;
+        : `ip:${clientIp}:${pathname}`;
 
       const selectedLimiter = isAuthenticated ? authLimiter : generalLimiter;
       const result = await applyRateLimit(selectedLimiter, identifier);
@@ -49,8 +59,24 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
         reset: Math.ceil(result.reset / 1000)
       };
 
+      logger.debug("middleware.rate_limit.checked", {
+        requestId,
+        path: pathname,
+        isAuthenticated,
+        remaining: rateContext.remaining,
+        limit: rateContext.limit,
+        reset: rateContext.reset,
+        success: result.success
+      });
+
       if (!result.success) {
         const retryAfterSeconds = Math.max(1, Math.ceil((result.reset - Date.now()) / 1000));
+        logger.warn("middleware.rate_limit.blocked", {
+          requestId,
+          path: pathname,
+          retryAfterSeconds,
+          isAuthenticated
+        });
         return NextResponse.json(
           {
             error: {
@@ -74,6 +100,11 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     if (pathname.startsWith("/dashboard") && !isAuthenticated) {
       const redirectUrl = new URL("/login", request.url);
       redirectUrl.searchParams.set("next", pathname);
+      logger.info("middleware.dashboard.redirect_login", {
+        requestId,
+        path: pathname,
+        redirectTo: redirectUrl.toString()
+      });
       return NextResponse.redirect(redirectUrl);
     }
 
@@ -88,19 +119,26 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     }
 
     const latency = Date.now() - startedAt;
-    console.warn(
-      JSON.stringify({
-        method: request.method,
-        path: pathname,
-        requestId,
-        userId: userId ?? null,
-        latencyMs: latency
-      })
-    );
+    logger.info("middleware.request.complete", {
+      requestId,
+      method: request.method,
+      path: pathname,
+      userId: userId ?? null,
+      isApiRoute,
+      isAiRoute,
+      status: response.status,
+      latencyMs: latency
+    });
 
     return response;
   } catch (error) {
-    console.error("middleware_error", { requestId, pathname, error });
+    logger.error("middleware.request.error", {
+      requestId,
+      method: request.method,
+      path: pathname,
+      ip: clientIp,
+      error
+    });
     return NextResponse.json(
       {
         error: {

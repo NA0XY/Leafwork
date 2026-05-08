@@ -10,6 +10,7 @@ import { rotateAll } from "@/lib/pdf/rotate";
 import { extractPages, splitByPages, splitEveryN, type PageRange } from "@/lib/pdf/split";
 import { addImageWatermark, addTextWatermark } from "@/lib/pdf/watermark";
 import { downloadBlob } from "@/lib/utils/file";
+import { logger } from "@/lib/utils/logger";
 import { useCanvasStore } from "@/store/canvas-store";
 import type { WatermarkOptions } from "@/lib/pdf/types";
 
@@ -44,6 +45,9 @@ export const usePDFEngine = () => {
 
   const withLifecycle = useCallback(
     async <T>(operation: (setStepProgress: (value: number) => void) => Promise<T>, options: LifecycleOptions<T>) => {
+      logger.info("pdf.engine.lifecycle.start", {
+        processingMessage: options.processingMessage
+      });
       setIsProcessing(true);
       setError(null);
       setDownloadComplete(false);
@@ -60,10 +64,18 @@ export const usePDFEngine = () => {
           window.setTimeout(() => setDownloadComplete(false), 3000);
         });
 
+        logger.info("pdf.engine.lifecycle.success", {
+          processingMessage: options.processingMessage
+        });
         toast.success(options.successMessage);
         return result;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown PDF processing error";
+        logger.error("pdf.engine.lifecycle.failed", {
+          processingMessage: options.processingMessage,
+          error: err,
+          message
+        });
         setError(message);
         toast.error("PDF action failed", message);
         finishProcessing();

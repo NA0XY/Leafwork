@@ -76,13 +76,15 @@ const inspectPdfInWorker = async (bytes: Uint8Array): Promise<WorkerResponsePayl
       resolve(null);
     };
 
+    // Use a cloned buffer for worker transfer so the caller keeps its original bytes.
+    const workerBytes = bytes.slice();
     const payload: WorkerRequestPayload = {
       id: requestId,
       action: "inspect",
-      bytes: bytes.buffer
+      bytes: workerBytes.buffer
     };
 
-    worker.postMessage(payload, [bytes.buffer]);
+    worker.postMessage(payload, [workerBytes.buffer]);
   });
 };
 
@@ -101,13 +103,6 @@ export const loadPDF = async (
     }
 
     onProgress?.(5);
-
-    if (file.type !== "application/pdf") {
-      return toProcessingResult<PDFDocumentState>(startedAt, {
-        data: null,
-        error: mapError(PDFEngineErrorCode.INVALID_FILE, "Only PDF files are supported")
-      });
-    }
 
     const buffer = await file.arrayBuffer();
     if (!checkMagicBytes(buffer)) {

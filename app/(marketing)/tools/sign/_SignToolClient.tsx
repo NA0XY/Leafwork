@@ -34,6 +34,7 @@ export const SignToolClient = () => {
   const [placement, setPlacement] = useState<Placement>({ x: 0.35, y: 0.45, width: 0.3, height: 0.12 });
   const [mode, setMode] = useState<ResizeMode>("none");
   const [busy, setBusy] = useState(false);
+  const [hasPlacedSignature, setHasPlacedSignature] = useState(false);
   const overlayRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -85,6 +86,7 @@ export const SignToolClient = () => {
           void (async () => {
             setFile(next);
             setBytes(new Uint8Array(await next.arrayBuffer()));
+            setHasPlacedSignature(false);
           })();
         }}
       />
@@ -100,6 +102,7 @@ export const SignToolClient = () => {
           setFile(null);
           setBytes(null);
           setSignatureData(null);
+          setHasPlacedSignature(false);
         }}
       />
 
@@ -133,7 +136,7 @@ export const SignToolClient = () => {
 
               <div
                 ref={overlayRef}
-                className="absolute inset-2"
+                className="absolute inset-0"
                 onPointerMove={(event) => {
                   if (mode === "none") {
                     return;
@@ -239,15 +242,29 @@ export const SignToolClient = () => {
                 const page = doc.getPage(Math.max(0, pageNumber - 1));
                 const size = page.getSize();
 
+                const placementX = placement.x * size.width;
+                const placementY = size.height - (placement.y + placement.height) * size.height;
+                const placementWidth = placement.width * size.width;
+                const placementHeight = placement.height * size.height;
+
+                // Match preview behavior (`object-contain`) so export position/scale is identical.
+                const widthRatio = placementWidth / image.width;
+                const heightRatio = placementHeight / image.height;
+                const fitRatio = Math.min(widthRatio, heightRatio);
+                const drawWidth = image.width * fitRatio;
+                const drawHeight = image.height * fitRatio;
+                const drawX = placementX + (placementWidth - drawWidth) / 2;
+                const drawY = placementY + (placementHeight - drawHeight) / 2;
+
                 page.drawImage(image, {
-                  x: placement.x * size.width,
-                  y: size.height - (placement.y + placement.height) * size.height,
-                  width: placement.width * size.width,
-                  height: placement.height * size.height
+                  x: drawX,
+                  y: drawY,
+                  width: drawWidth,
+                  height: drawHeight
                 });
 
                 const output = await doc.save({ useObjectStreams: true, addDefaultPage: false });
-                return new Blob([output], { type: "application/pdf" });
+                return output;
               });
 
               setBusy(false);
@@ -257,11 +274,24 @@ export const SignToolClient = () => {
                 return;
               }
 
-              downloadBlob(result.data, `${file.name.replace(/\.pdf$/i, "")}_signed.pdf`);
-              toast.success("Signed PDF downloaded");
+              setBytes(new Uint8Array(result.data));
+              setHasPlacedSignature(true);
+              toast.success("Signature placed", "You can place more signatures on other pages before downloading.");
             }}
           >
             Place Signature
+          </Button>
+
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!hasPlacedSignature}
+            onClick={() => {
+              downloadBlob(new Blob([bytes], { type: "application/pdf" }), `${file.name.replace(/\.pdf$/i, "")}_signed.pdf`);
+              toast.success("Signed PDF downloaded");
+            }}
+          >
+            Download Signed PDF
           </Button>
         </div>
       </section>

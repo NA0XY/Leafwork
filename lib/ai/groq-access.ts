@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/auth/supabase-server";
 import { anonGroqLimiter, applyRateLimit, authAiLimiter } from "@/lib/rate-limit/upstash";
 import { jsonError } from "@/lib/utils/api";
+import { logger } from "@/lib/utils/logger";
 
 type GroqAccess =
   | {
@@ -25,11 +26,34 @@ export const enforceGroqAccess = async (
   requestId: string,
   featureKey: string
 ): Promise<GroqAccess> => {
+  const ip = resolveClientIp(request);
+  logger.debug("ai.access.check.start", {
+    requestId,
+    featureKey,
+    path: request.nextUrl.pathname,
+    method: request.method,
+    ip
+  });
+
   const user = await getUser();
 
   if (user) {
     const rate = await applyRateLimit(authAiLimiter, `${featureKey}:user:${user.id}`);
+    logger.debug("ai.access.check.authenticated", {
+      requestId,
+      featureKey,
+      userId: user.id,
+      remaining: rate.remaining,
+      reset: rate.reset,
+      success: rate.success
+    });
+
     if (!rate.success) {
+      logger.warn("ai.access.blocked.authenticated", {
+        requestId,
+        featureKey,
+        userId: user.id
+      });
       return {
         ok: false,
         response: jsonError(429, {
@@ -40,15 +64,35 @@ export const enforceGroqAccess = async (
       };
     }
 
+    logger.info("ai.access.allowed", {
+      requestId,
+      featureKey,
+      userId: user.id,
+      ip
+    });
+
     return {
       ok: true,
       userId: user.id
     };
   }
 
-  const ip = resolveClientIp(request);
   const freeUsage = await applyRateLimit(anonGroqLimiter, `${featureKey}:ip:${ip}`);
+  logger.debug("ai.access.check.anonymous", {
+    requestId,
+    featureKey,
+    ip,
+    remaining: freeUsage.remaining,
+    reset: freeUsage.reset,
+    success: freeUsage.success
+  });
+
   if (!freeUsage.success) {
+    logger.warn("ai.access.blocked.anonymous", {
+      requestId,
+      featureKey,
+      ip
+    });
     return {
       ok: false,
       response: jsonError(401, {
@@ -58,6 +102,13 @@ export const enforceGroqAccess = async (
       })
     };
   }
+
+  logger.info("ai.access.allowed", {
+    requestId,
+    featureKey,
+    userId: null,
+    ip
+  });
 
   return {
     ok: true,

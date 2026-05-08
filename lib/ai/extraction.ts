@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import { clonePdfBytes, loadPdfJs } from "@/lib/pdf/pdfjs";
+
 type NormalizedTextItem = {
   str: string;
   x: number;
@@ -12,12 +14,6 @@ export type TableRegion = {
   page: number;
   bbox: { x: number; y: number; width: number; height: number };
   rows: string[][];
-};
-
-const loadPdfJs = async () => {
-  const pdfjs = await import("pdfjs-dist");
-  pdfjs.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.min.mjs";
-  return pdfjs;
 };
 
 const normalizeTextItems = (items: unknown[]): NormalizedTextItem[] => {
@@ -99,7 +95,7 @@ const looksTabular = (rows: NormalizedTextItem[][]): boolean => {
 
 export const extractTextWithLayout = async (bytes: Uint8Array): Promise<string> => {
   const pdfjs = await loadPdfJs();
-  const loadingTask = pdfjs.getDocument({ data: bytes });
+  const loadingTask = pdfjs.getDocument({ data: clonePdfBytes(bytes) });
   const pdf = await loadingTask.promise;
 
   const sections: string[] = [];
@@ -147,7 +143,7 @@ export const extractTextWithLayout = async (bytes: Uint8Array): Promise<string> 
 
 export const extractTableRegions = async (bytes: Uint8Array): Promise<TableRegion[]> => {
   const pdfjs = await loadPdfJs();
-  const loadingTask = pdfjs.getDocument({ data: bytes });
+  const loadingTask = pdfjs.getDocument({ data: clonePdfBytes(bytes) });
   const pdf = await loadingTask.promise;
 
   const regions: TableRegion[] = [];
@@ -195,5 +191,4 @@ export const extractTableRegions = async (bytes: Uint8Array): Promise<TableRegio
 
   return regions;
 };
-
 

@@ -37,5 +37,5 @@ export const PDFCanvas = ({ bytes, pageNumber, scale = 1.2 }: PDFCanvasProps) =>
     };
   }, [bytes, pageNumber, scale]);
 
-  return <canvas ref={canvasRef} className="h-auto max-w-full" aria-label={`PDF page ${pageNumber}`} />;
+  return <canvas ref={canvasRef} className="block h-auto max-w-full" aria-label={`PDF page ${pageNumber}`} />;
 };

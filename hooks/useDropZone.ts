@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 const PDF_MIME = "application/pdf";
+const OCTET_STREAM_MIME = "application/octet-stream";
 
 export type UseDropZoneOptions = {
   maxFiles?: number;
@@ -26,7 +27,12 @@ export const useDropZone = ({ maxFiles = 20, onFiles, onError }: UseDropZoneOpti
         return [];
       }
 
-      const invalid = files.find((file) => file.type !== PDF_MIME);
+      const invalid = files.find((file) => {
+        const lowerName = file.name.toLowerCase();
+        const mimeOk = file.type === PDF_MIME || file.type === OCTET_STREAM_MIME || file.type === "";
+        const extensionOk = lowerName.endsWith(".pdf");
+        return !mimeOk && !extensionOk;
+      });
       if (invalid) {
         onError?.(`File ${invalid.name} is not a PDF.`);
         return [];

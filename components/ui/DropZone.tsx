@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils/cn";
+import { checkMagicBytes } from "@/lib/validations/file";
 import { formatBytes, truncateFilename } from "@/lib/utils/format";
 
 type DropZoneProps = {
@@ -16,11 +17,9 @@ type DropZoneProps = {
   accept?: string;
 };
 
-const PDF_MAGIC = "%PDF-";
-
-const readMagicBytes = async (file: File): Promise<string> => {
-  const chunk = await file.slice(0, 5).arrayBuffer();
-  return new TextDecoder("latin1").decode(chunk);
+const readMagicBytes = async (file: File): Promise<boolean> => {
+  const chunk = await file.slice(0, 1024).arrayBuffer();
+  return checkMagicBytes(chunk);
 };
 
 const isMobileTouch = (): boolean => {
@@ -63,9 +62,9 @@ export const DropZone = ({
 
       const validated: File[] = [];
       for (const file of incoming) {
-        const magic = await readMagicBytes(file);
-        if (magic !== PDF_MAGIC) {
-          const message = "Not a PDF file";
+        const hasPdfMagic = await readMagicBytes(file);
+        if (!hasPdfMagic) {
+          const message = `Not a PDF file: ${file.name}`;
           setError(message);
           onError?.(message);
           continue;

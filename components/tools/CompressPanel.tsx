@@ -21,6 +21,7 @@ type CompressPanelProps = {
   progress: number;
   isProcessing: boolean;
   downloadComplete: boolean;
+  error: string | null;
   onRemoveFile: () => void;
   onCompress: (targetKB: number, stripMetadata: boolean) => Promise<CompressResult | null>;
 };
@@ -30,6 +31,7 @@ export const CompressPanel = ({
   progress,
   isProcessing,
   downloadComplete,
+  error,
   onRemoveFile,
   onCompress
 }: CompressPanelProps) => {
@@ -173,6 +175,12 @@ export const CompressPanel = ({
           {downloadComplete ? <Badge tone="success">Downloaded OK</Badge> : null}
         </div>
       </section>
+
+      {error ? (
+        <section className="rounded-brutal border-2 border-red-700 bg-red-100 p-4">
+          <p className="text-sm font-semibold text-red-900">{error}</p>
+        </section>
+      ) : null}
 
       {compressionSummary ? (
         <section className="rounded-brutal border-2 border-green-800 bg-green-100 p-4">

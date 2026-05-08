@@ -1,5 +1,6 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { logger } from "@/lib/utils/logger";
 
 export type RateLimitResult = {
   success: boolean;
@@ -38,6 +39,9 @@ export const applyRateLimit = async (
   identifier: string
 ): Promise<RateLimitResult> => {
   if (!limiter) {
+    logger.warn("rate_limit.disabled_fallback_allow", {
+      identifier
+    });
     return {
       success: true,
       remaining: Number.MAX_SAFE_INTEGER,
@@ -47,13 +51,22 @@ export const applyRateLimit = async (
 
   try {
     const result = await limiter.limit(identifier);
+    logger.debug("rate_limit.checked", {
+      identifier,
+      success: result.success,
+      remaining: result.remaining,
+      reset: result.reset
+    });
     return {
       success: result.success,
       reset: result.reset,
       remaining: result.remaining
     };
   } catch (error) {
-    console.warn("rate_limit_fallback_allow", { identifier, error });
+    logger.error("rate_limit.error_fallback_allow", {
+      identifier,
+      error
+    });
     return {
       success: true,
       remaining: Number.MAX_SAFE_INTEGER,

@@ -18,8 +18,9 @@ export const CompressToolClient = () => {
       progress={pdf.progress}
       isProcessing={pdf.isProcessing}
       downloadComplete={pdf.downloadComplete}
+      error={pdf.error}
       onRemoveFile={() => setFile(null)}
-      onCompress={async (targetKB) => pdf.compress(file, targetKB)}
+      onCompress={async (targetKB, _stripMetadata) => pdf.compress(file, targetKB)}
     />
   );
 };

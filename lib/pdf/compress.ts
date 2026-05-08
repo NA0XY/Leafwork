@@ -1,7 +1,9 @@
-﻿"use client";
+"use client";
 
 import { withPdfLib } from "@/lib/pdf/engine";
+import { clonePdfBytes, loadPdfJs } from "@/lib/pdf/pdfjs";
 import { PDFEngineError, PDFEngineErrorCode, type CompressionTarget, type ProcessingResult } from "@/lib/pdf/types";
+import { logger } from "@/lib/utils/logger";
 
 type ProgressCallback = (percent: number) => void;
 
@@ -16,6 +18,7 @@ type CompressOutput = {
 const MIN_QUALITY = 0.3;
 const MAX_QUALITY = 0.9;
 const MAX_ITERATIONS = 8;
+const PRESERVE_SELECTABLE_TEXT = true;
 
 const toResult = <T>(data: T | null, error: PDFEngineError | null, startedAt: number): ProcessingResult<T> => ({
   data,
@@ -64,14 +67,15 @@ const optimizeWithPdfLib = async (bytes: Uint8Array): Promise<Uint8Array> => {
 };
 
 const renderAndFlattenPdf = async (bytes: Uint8Array, quality: number): Promise<Uint8Array> => {
-  const [{ getDocument, GlobalWorkerOptions }, pdfLib] = await Promise.all([
-    import("pdfjs-dist"),
+  const [pdfJs, pdfLib] = await Promise.all([
+    loadPdfJs(),
     import("pdf-lib")
   ]);
 
-  GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.min.mjs";
+  const { getDocument } = pdfJs;
 
-  const loadingTask = getDocument({ data: bytes });
+  // PDF.js can transfer/consume TypedArray buffers internally, so pass a fresh copy.
+  const loadingTask = getDocument({ data: clonePdfBytes(bytes) });
   const source = await loadingTask.promise;
   const output = await pdfLib.PDFDocument.create();
 
@@ -113,47 +117,73 @@ export const compressPDF = async (
   onProgress?: ProgressCallback
 ): Promise<ProcessingResult<CompressOutput>> => {
   const startedAt = performance.now();
+  logger.info("pdf.compress.start", {
+    fileName: file.name,
+    fileSizeBytes: file.size,
+    target
+  });
 
   try {
     const originalBytes = new Uint8Array(await file.arrayBuffer());
     const goalBytes = getTargetBytes(target, originalBytes.byteLength);
+    logger.debug("pdf.compress.input.ready", {
+      fileName: file.name,
+      originalBytes: originalBytes.byteLength,
+      goalBytes
+    });
 
     onProgress?.(10);
     const stageOneBytes = await optimizeWithPdfLib(originalBytes);
+    const stageOneStableBytes = stageOneBytes.slice();
+    logger.debug("pdf.compress.stage_one.complete", {
+      fileName: file.name,
+      stageOneBytes: stageOneBytes.byteLength
+    });
     onProgress?.(25);
 
-    let low = MIN_QUALITY;
-    let high = MAX_QUALITY;
-    let bestQuality = MIN_QUALITY;
-    let bestBytes = stageOneBytes;
+    let bestBytes = stageOneStableBytes;
+    let bestQuality = 1;
+    const flatteningAvailable = false;
+    const executedIterations = 0;
 
-    for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration += 1) {
-      const quality = Number(((low + high) / 2).toFixed(4));
-      const flattened = await renderAndFlattenPdf(stageOneBytes, quality);
-
-      if (Math.abs(flattened.byteLength - goalBytes) < Math.abs(bestBytes.byteLength - goalBytes)) {
-        bestBytes = flattened;
-        bestQuality = quality;
-      }
-
-      if (flattened.byteLength <= goalBytes) {
-        low = quality;
-      } else {
-        high = quality;
-      }
-
-      onProgress?.(25 + Math.round((iteration / MAX_ITERATIONS) * 70));
-    }
-
-    if (bestBytes.byteLength > goalBytes) {
-      const aggressive = await renderAndFlattenPdf(stageOneBytes, MIN_QUALITY);
-      if (aggressive.byteLength < bestBytes.byteLength) {
-        bestBytes = aggressive;
-        bestQuality = MIN_QUALITY;
+    if (PRESERVE_SELECTABLE_TEXT) {
+      logger.info("pdf.compress.text_preserving_mode", {
+        fileName: file.name,
+        originalBytes: originalBytes.byteLength,
+        optimizedBytes: stageOneStableBytes.byteLength,
+        goalBytes,
+        note: "Raster flattening disabled to preserve selectable text."
+      });
+    } else {
+      let low = MIN_QUALITY;
+      let high = MAX_QUALITY;
+      bestQuality = MIN_QUALITY;
+      for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration += 1) {
+        const quality = Number(((low + high) / 2).toFixed(4));
+        const flattened = await renderAndFlattenPdf(stageOneStableBytes, quality);
+        if (Math.abs(flattened.byteLength - goalBytes) < Math.abs(bestBytes.byteLength - goalBytes)) {
+          bestBytes = flattened;
+          bestQuality = quality;
+        }
+        if (flattened.byteLength <= goalBytes) {
+          low = quality;
+        } else {
+          high = quality;
+        }
+        onProgress?.(25 + Math.round((iteration / MAX_ITERATIONS) * 70));
       }
     }
 
     onProgress?.(100);
+    logger.info("pdf.compress.success", {
+      fileName: file.name,
+      originalBytes: originalBytes.byteLength,
+      compressedBytes: bestBytes.byteLength,
+      goalBytes,
+      bestQuality,
+      flatteningAvailable: !PRESERVE_SELECTABLE_TEXT && flatteningAvailable,
+      iterationsUsed: executedIterations
+    });
 
     return toResult<CompressOutput>(
       {
@@ -161,15 +191,21 @@ export const compressPDF = async (
         originalBytes: originalBytes.byteLength,
         compressedBytes: bestBytes.byteLength,
         quality: Number(bestQuality.toFixed(2)),
-        iterationsUsed: MAX_ITERATIONS
+        iterationsUsed: executedIterations
       },
       null,
       startedAt
     );
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    logger.error("pdf.compress.failed", {
+      fileName: file.name,
+      target,
+      error
+    });
     return toResult<CompressOutput>(
       null,
-      new PDFEngineError(PDFEngineErrorCode.PROCESSING_FAILED, "Compression failed", error),
+      new PDFEngineError(PDFEngineErrorCode.PROCESSING_FAILED, `Compression failed: ${message}`, error),
       startedAt
     );
   }

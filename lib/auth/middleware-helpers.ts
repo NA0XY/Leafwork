@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/utils/logger";
 
 type SupabaseCookieOptions = {
   domain?: string;
@@ -30,6 +31,7 @@ const getSupabaseEnv = (): { url: string; anonKey: string } | null => {
 export const refreshSupabaseSession = async (
   request: NextRequest
 ): Promise<RefreshSessionResult> => {
+  const path = request.nextUrl.pathname;
   const response = NextResponse.next({
     request: {
       headers: request.headers
@@ -38,6 +40,9 @@ export const refreshSupabaseSession = async (
 
   const env = getSupabaseEnv();
   if (!env) {
+    logger.warn("auth.middleware.env_missing", {
+      path
+    });
     return { response, userId: null };
   }
 
@@ -63,10 +68,22 @@ export const refreshSupabaseSession = async (
 
   if (error) {
     if (error.message !== "Auth session missing!") {
-      console.warn("supabase_session_refresh_error", error.message);
+      logger.warn("auth.middleware.refresh_error", {
+        path,
+        error
+      });
+    } else {
+      logger.debug("auth.middleware.no_session", {
+        path
+      });
     }
     return { response, userId: null };
   }
+
+  logger.debug("auth.middleware.session_refreshed", {
+    path,
+    userId: user?.id ?? null
+  });
 
   return {
     response,
