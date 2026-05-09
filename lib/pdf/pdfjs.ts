@@ -1,16 +1,13 @@
-"use client";
+﻿"use client";
 
 type PdfJsModule = typeof import("pdfjs-dist");
 
 let pdfJsPromise: Promise<PdfJsModule> | null = null;
 
 const configureWorker = (pdfjs: PdfJsModule): void => {
-  const workerVersion = (pdfjs as { version?: string }).version;
-  if (!workerVersion) {
-    return;
-  }
-
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${workerVersion}/build/pdf.worker.min.mjs`;
+  void pdfjs;
+  // Keep worker same-origin so CSP stays strict and no CDN script is required.
+  pdfjs.GlobalWorkerOptions.workerSrc = "/workers/pdf.worker.min.mjs";
 };
 
 export const loadPdfJs = async (): Promise<PdfJsModule> => {
