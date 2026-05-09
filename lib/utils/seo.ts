@@ -1,6 +1,8 @@
 ﻿import type { Metadata } from "next";
 
-export const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://leafworkpdf.vercel.app";
+const configuredBaseUrl = process.env.NEXT_PUBLIC_BASE_URL?.trim();
+
+export const BASE_URL = configuredBaseUrl && configuredBaseUrl.length > 0 ? configuredBaseUrl : "https://leafworkpdf.vercel.app";
 
 export const canonicalUrl = (path: string): string => {
   const safePath = path.startsWith("/") ? path : `/${path}`;
