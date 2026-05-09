@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getUser } from "@/lib/auth/supabase-server";
-import { anonGroqLimiter, applyRateLimit, authAiLimiter } from "@/lib/rate-limit/upstash";
+import { applyRateLimit, authAiLimiter } from "@/lib/rate-limit/upstash";
 import { jsonError } from "@/lib/utils/api";
 import { logger } from "@/lib/utils/logger";
 
@@ -77,41 +77,18 @@ export const enforceGroqAccess = async (
     };
   }
 
-  const freeUsage = await applyRateLimit(anonGroqLimiter, `${featureKey}:ip:${ip}`);
-  logger.debug("ai.access.check.anonymous", {
+  logger.warn("ai.access.blocked.anonymous", {
     requestId,
     featureKey,
-    ip,
-    remaining: freeUsage.remaining,
-    reset: freeUsage.reset,
-    success: freeUsage.success
-  });
-
-  if (!freeUsage.success) {
-    logger.warn("ai.access.blocked.anonymous", {
-      requestId,
-      featureKey,
-      ip
-    });
-    return {
-      ok: false,
-      response: jsonError(401, {
-        code: "AUTH_REQUIRED",
-        message: "Free AI usage limit reached for this IP (3/day). Sign in to continue.",
-        requestId
-      })
-    };
-  }
-
-  logger.info("ai.access.allowed", {
-    requestId,
-    featureKey,
-    userId: null,
     ip
   });
 
   return {
-    ok: true,
-    userId: null
+    ok: false,
+    response: jsonError(401, {
+      code: "AUTH_REQUIRED",
+      message: "Login required for AI features.",
+      requestId
+    })
   };
 };

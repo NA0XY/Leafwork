@@ -10,11 +10,14 @@ export type RateLimitResult = {
 
 type LimiterLike = Pick<Ratelimit, "limit">;
 
+const upstashUrl = process.env.UPSTASH_REDIS_REST_URL?.trim() ?? "";
+const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim() ?? "";
+
 const redis =
-  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+  upstashUrl && upstashToken
     ? new Redis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN
+        url: upstashUrl,
+        token: upstashToken
       })
     : null;
 
