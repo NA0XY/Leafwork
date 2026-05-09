@@ -10,6 +10,7 @@ import { Header } from "@/components/layout/Header";
 import { PrivacyBadge } from "@/components/layout/PrivacyBadge";
 import { AppErrorBoundary } from "@/components/layout/AppErrorBoundary";
 import { ToastViewport } from "@/components/ui/ToastViewport";
+import { BASE_URL, canonicalUrl, ogImageUrl } from "@/lib/utils/seo";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -22,8 +23,44 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Leafwork - Local-first PDF workspace",
-  description: "Free local PDF tools where files never leave your browser."
+  metadataBase: new URL(BASE_URL),
+  title: {
+    default: "Leafwork - Free PDF Tools. No Upload Required.",
+    template: "%s | Leafwork"
+  },
+  description: "Free browser-based PDF tools for merge, split, compress, sign, redact, and AI document workflows.",
+  alternates: {
+    canonical: canonicalUrl("/")
+  },
+  openGraph: {
+    title: "Leafwork - Free PDF Tools. No Upload Required.",
+    description: "Merge, split, compress, sign, redact, and convert PDFs in a privacy-first workflow.",
+    url: canonicalUrl("/"),
+    siteName: "Leafwork",
+    type: "website",
+    images: [
+      {
+        url: ogImageUrl(),
+        width: 1200,
+        height: 630,
+        alt: "Leafwork PDF Tools"
+      }
+    ]
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Leafwork - Free PDF Tools. No Upload Required.",
+    description: "Privacy-first PDF tools that run in your browser.",
+    images: [ogImageUrl()]
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ?? ""
+  },
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg"
+  }
 };
 
 export const viewport: Viewport = {
