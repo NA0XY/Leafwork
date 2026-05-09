@@ -8,10 +8,10 @@ import { DropZone } from "@/components/ui/DropZone";
 import { useCanvasStore } from "@/store/canvas-store";
 
 const terminalRows = [
-  "> Loading pdf-lib WASM...      OK",
-  "> Reading file bytes...        OK",
-  "> Processing locally...        OK",
-  "> Uploading to server...       NO"
+  "> Loading PDF engine...           OK",
+  "> Parsing pages in browser...     OK",
+  "> Processing edits locally...     OK",
+  "> Server transmission...          BLOCKED"
 ] as const;
 
 const stats = [

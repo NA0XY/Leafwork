@@ -1,4 +1,4 @@
-import { WatermarkToolClient } from "@/app/(marketing)/tools/watermark/_WatermarkToolClient";
+﻿import { WatermarkToolClient } from "@/app/(marketing)/tools/watermark/_WatermarkToolClient";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { generateToolMetadata } from "@/lib/utils/seo";
 
@@ -25,8 +25,10 @@ export default function WatermarkToolPage() {
       toolTitle="Watermark PDF"
       description="Apply text or image watermarks with a live visual preview before download."
       faqs={faqs}
+      toolSlug="watermark"
     >
       <WatermarkToolClient />
     </ToolPageShell>
   );
 }
+

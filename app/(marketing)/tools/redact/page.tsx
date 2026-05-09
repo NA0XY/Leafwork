@@ -1,4 +1,4 @@
-import { RedactToolClient } from "@/app/(marketing)/tools/redact/_RedactToolClient";
+﻿import { RedactToolClient } from "@/app/(marketing)/tools/redact/_RedactToolClient";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { generateToolMetadata } from "@/lib/utils/seo";
 
@@ -25,8 +25,10 @@ export default function RedactToolPage() {
       toolTitle="Redact PDF"
       description="Draw redaction regions directly on page previews and export a secure redacted copy."
       faqs={faqs}
+      toolSlug="redact"
     >
       <RedactToolClient />
     </ToolPageShell>
   );
 }
+

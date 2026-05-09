@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
 import { getPageCount, renderPage, renderThumbnail } from "@/lib/pdf/renderer";
+import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
 
 type ConvertedImage = {
@@ -16,13 +17,6 @@ type ConvertedImage = {
   filename: string;
   dataUrl: string;
   blob: Blob;
-};
-
-const downloadDataUrl = (dataUrl: string, filename: string): void => {
-  const anchor = document.createElement("a");
-  anchor.href = dataUrl;
-  anchor.download = filename;
-  anchor.click();
 };
 
 const SCALE_MAP = {
@@ -250,6 +244,13 @@ export const PdfToImagesToolClient = () => {
                 });
                 const blob = await zip.generateAsync({ type: "blob" });
                 downloadBlob(blob, `${file.name.replace(/\.pdf$/i, "")}_images.zip`);
+                trackToolActivity({
+                  tool: "pdf-to-images",
+                  fileName: file.name,
+                  filesProcessed: selectedList.length,
+                  inputBytes: file.size,
+                  outputBytes: blob.size
+                });
               }}
             >
               <Download className="h-3.5 w-3.5" /> Download all as ZIP
@@ -266,7 +267,16 @@ export const PdfToImagesToolClient = () => {
                   size="sm"
                   variant="secondary"
                   className="mt-2 w-full"
-                  onClick={() => downloadDataUrl(entry.dataUrl, entry.filename)}
+                  onClick={() => {
+                    downloadBlob(entry.blob, entry.filename);
+                    trackToolActivity({
+                      tool: "pdf-to-images",
+                      fileName: entry.filename,
+                      filesProcessed: 1,
+                      inputBytes: 0,
+                      outputBytes: entry.blob.size
+                    });
+                  }}
                 >
                   <ImageIcon className="h-3.5 w-3.5" /> Download
                 </Button>

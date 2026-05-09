@@ -1,4 +1,4 @@
-import { CompressToolClient } from "@/app/(marketing)/tools/compress/_CompressToolClient";
+﻿import { CompressToolClient } from "@/app/(marketing)/tools/compress/_CompressToolClient";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { generateToolMetadata } from "@/lib/utils/seo";
 
@@ -25,8 +25,10 @@ export default function CompressToolPage() {
       toolTitle="Compress PDF"
       description="Shrink PDF size with live estimates, presets, and immediate local export."
       faqs={faqs}
+      toolSlug="compress"
     >
       <CompressToolClient />
     </ToolPageShell>
   );
 }
+

@@ -1,4 +1,4 @@
-import { SummarizeToolClient } from "@/app/(marketing)/tools/summarize/_SummarizeToolClient";
+﻿import { SummarizeToolClient } from "@/app/(marketing)/tools/summarize/_SummarizeToolClient";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { generateToolMetadata } from "@/lib/utils/seo";
 
@@ -25,8 +25,10 @@ export default function SummarizeToolPage() {
       toolTitle="Summarize PDF"
       description="Generate concise AI summaries with key points and action items from extracted text."
       faqs={faqs}
+      toolSlug="summarize"
     >
       <SummarizeToolClient />
     </ToolPageShell>
   );
 }
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FileText, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
@@ -125,7 +125,7 @@ export const DropZone = ({
         role="region"
         aria-label="PDF drop zone"
         className={cn(
-          "relative rounded-brutal border-2 border-ink bg-surface p-4 transition-all duration-150",
+          "relative min-h-[18rem] rounded-brutal border-2 border-ink bg-surface p-4 transition-all duration-150",
           files.length === 0 ? "border-dashed min-h-56" : "min-h-[10rem]",
           isDragging && !isTouchMode && "border-primary bg-green-100 scale-[1.01] dropzone-drag-pulse"
         )}
@@ -217,3 +217,4 @@ export const DropZone = ({
     </div>
   );
 };
+

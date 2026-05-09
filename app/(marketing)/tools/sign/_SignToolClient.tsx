@@ -1,16 +1,17 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { PDFCanvas } from "@/components/canvas/PDFCanvas";
 import { SignaturePanel } from "@/components/tools/SignaturePanel";
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { PageNavigator } from "@/components/tools/PageNavigator";
 import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
 import { withPdfLib } from "@/lib/pdf/engine";
 import { getPageCount } from "@/lib/pdf/renderer";
+import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
 
 type Placement = {
@@ -112,23 +113,7 @@ export const SignToolClient = () => {
         </div>
 
         <div className="space-y-3 rounded-brutal border-2 border-ink bg-surface p-4 shadow-brutal">
-          <div className="flex items-center justify-center gap-3">
-            <Button type="button" size="sm" variant="secondary" disabled={pageNumber <= 1} onClick={() => setPageNumber((value) => value - 1)}>
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </Button>
-            <p className="text-sm font-semibold">
-              Page {pageNumber} / {pageCount}
-            </p>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={pageNumber >= pageCount}
-              onClick={() => setPageNumber((value) => value + 1)}
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          <PageNavigator pageNumber={pageNumber} pageCount={pageCount} onPageChange={setPageNumber} />
 
           <div className="relative rounded-brutal border-2 border-ink bg-paper p-2">
             <div className="relative">
@@ -287,7 +272,15 @@ export const SignToolClient = () => {
             variant="secondary"
             disabled={!hasPlacedSignature}
             onClick={() => {
-              downloadBlob(new Blob([bytes], { type: "application/pdf" }), `${file.name.replace(/\.pdf$/i, "")}_signed.pdf`);
+              const output = new Blob([bytes], { type: "application/pdf" });
+              downloadBlob(output, `${file.name.replace(/\.pdf$/i, "")}_signed.pdf`);
+              trackToolActivity({
+                tool: "sign",
+                fileName: file.name,
+                filesProcessed: 1,
+                inputBytes: file.size,
+                outputBytes: output.size
+              });
               toast.success("Signed PDF downloaded");
             }}
           >

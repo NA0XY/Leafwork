@@ -7,6 +7,7 @@ import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
 import { withPdfLib } from "@/lib/pdf/engine";
 import type { WatermarkPosition } from "@/lib/pdf/types";
+import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
 
 const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
@@ -146,6 +147,50 @@ export const WatermarkToolClient = () => {
         setAppliedCount((count) => count + 1);
         toast.success("Watermark placed", `Added to page ${input.pageNumber}.`);
       }}
+      onTextWatermarkAll={async (input) => {
+        setIsProcessing(true);
+        setProgress(10);
+        setDownloadComplete(false);
+
+        const result = await withPdfLib(async (pdfLib) => {
+          const doc = await pdfLib.PDFDocument.load(bytes);
+          const font = await doc.embedFont(pdfLib.StandardFonts.HelveticaBold);
+
+          for (const page of doc.getPages()) {
+            const { width, height } = page.getSize();
+            const textWidth = font.widthOfTextAtSize(input.text, input.fontSize);
+            const textHeight = input.fontSize;
+            const coords = positionToCoords(width, height, textWidth, textHeight, input.position);
+            const color = hexToRgb(input.colorHex);
+
+            page.drawText(input.text, {
+              x: coords.x,
+              y: coords.y,
+              size: input.fontSize,
+              font,
+              color: pdfLib.rgb(color.r, color.g, color.b),
+              rotate: pdfLib.degrees(input.rotation || 45),
+              opacity: Math.max(0.05, Math.min(1, input.opacity))
+            });
+          }
+
+          setProgress(80);
+          const output = await doc.save({ useObjectStreams: true, addDefaultPage: false });
+          return output;
+        });
+
+        setIsProcessing(false);
+        setProgress(0);
+
+        if (!result.data) {
+          toast.error("Watermark failed", result.error?.message ?? "Unable to place watermark");
+          return;
+        }
+
+        setBytes(new Uint8Array(result.data));
+        setAppliedCount((count) => count + 1);
+        toast.success("Watermark placed", "Added to all pages.");
+      }}
       onImageWatermark={async (imageData, input) => {
         setIsProcessing(true);
         setProgress(10);
@@ -196,8 +241,67 @@ export const WatermarkToolClient = () => {
         setAppliedCount((count) => count + 1);
         toast.success("Watermark placed", `Added to page ${input.pageNumber}.`);
       }}
+      onImageWatermarkAll={async (imageData, input) => {
+        setIsProcessing(true);
+        setProgress(10);
+        setDownloadComplete(false);
+
+        const result = await withPdfLib(async (pdfLib) => {
+          const doc = await pdfLib.PDFDocument.load(bytes);
+
+          const imagePayload = imageData.split(",")[1] ?? "";
+          const imageBytes = Uint8Array.from(atob(imagePayload), (char) => char.charCodeAt(0));
+          const embedded = imageData.startsWith("data:image/png")
+            ? await doc.embedPng(imageBytes)
+            : await doc.embedJpg(imageBytes);
+
+          for (const page of doc.getPages()) {
+            const { width, height } = page.getSize();
+            const scaleCap = Math.max(0.1, Math.min(0.8, input.imageSize / 100));
+            const maxWidth = width * scaleCap;
+            const maxHeight = height * scaleCap;
+            const scale = Math.min(maxWidth / embedded.width, maxHeight / embedded.height, 1);
+            const watermarkWidth = embedded.width * scale;
+            const watermarkHeight = embedded.height * scale;
+            const coords = positionToCoords(width, height, watermarkWidth, watermarkHeight, input.position);
+
+            page.drawImage(embedded, {
+              x: coords.x,
+              y: coords.y,
+              width: watermarkWidth,
+              height: watermarkHeight,
+              rotate: pdfLib.degrees(input.rotation || 0),
+              opacity: Math.max(0.05, Math.min(1, input.opacity))
+            });
+          }
+
+          setProgress(80);
+          const output = await doc.save({ useObjectStreams: true, addDefaultPage: false });
+          return output;
+        });
+
+        setIsProcessing(false);
+        setProgress(0);
+
+        if (!result.data) {
+          toast.error("Watermark failed", result.error?.message ?? "Unable to place watermark");
+          return;
+        }
+
+        setBytes(new Uint8Array(result.data));
+        setAppliedCount((count) => count + 1);
+        toast.success("Watermark placed", "Added to all pages.");
+      }}
       onDownload={() => {
-        downloadBlob(new Blob([bytes], { type: "application/pdf" }), `${file.name.replace(/\.pdf$/i, "")}_watermarked.pdf`);
+        const output = new Blob([bytes], { type: "application/pdf" });
+        downloadBlob(output, `${file.name.replace(/\.pdf$/i, "")}_watermarked.pdf`);
+        trackToolActivity({
+          tool: "watermark",
+          fileName: file.name,
+          filesProcessed: 1,
+          inputBytes: file.size,
+          outputBytes: output.size
+        });
         setDownloadComplete(true);
         window.setTimeout(() => setDownloadComplete(false), 3000);
         toast.success("Watermarked PDF downloaded");

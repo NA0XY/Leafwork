@@ -20,6 +20,12 @@
   padding: 0;
 }
 
+@layer base {
+  * {
+    font-display: swap;
+  }
+}
+
 html,
 body {
   min-height: 100%;
@@ -187,4 +193,17 @@ body {
 
 .processing-gear {
   animation: processingSpin 2.4s linear infinite;
+}
+
+details > summary {
+  list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.below-fold {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
 }

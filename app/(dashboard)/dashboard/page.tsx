@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Skeleton, SkeletonGroup } from "@/components/ui/Skeleton";
 import { useAuth } from "@/hooks/useAuth";
+import { activityUpdatedEvent, readUsageStats, usageStatsStorageKey, type LocalUsageStats } from "@/lib/utils/activity";
 import { formatBytes } from "@/lib/utils/format";
 
 type WorkflowStep = {
@@ -23,43 +24,30 @@ type WorkflowItem = {
   steps: WorkflowStep[];
 };
 
-type LocalUsageStats = {
-  toolsUsedToday: number;
-  filesProcessed: number;
-  bytesSaved: number;
-};
-
-const USAGE_KEY = "leafwork:usage-stats";
-
-const loadUsageStats = (): LocalUsageStats => {
-  if (typeof window === "undefined") {
-    return { toolsUsedToday: 0, filesProcessed: 0, bytesSaved: 0 };
-  }
-
-  try {
-    const raw = localStorage.getItem(USAGE_KEY);
-    if (!raw) {
-      return { toolsUsedToday: 0, filesProcessed: 0, bytesSaved: 0 };
-    }
-    const parsed = JSON.parse(raw) as Partial<LocalUsageStats>;
-    return {
-      toolsUsedToday: parsed.toolsUsedToday ?? 0,
-      filesProcessed: parsed.filesProcessed ?? 0,
-      bytesSaved: parsed.bytesSaved ?? 0
-    };
-  } catch {
-    return { toolsUsedToday: 0, filesProcessed: 0, bytesSaved: 0 };
-  }
-};
-
 export default function DashboardPage() {
   const { loading, isAuthenticated } = useAuth();
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
   const [busy, setBusy] = useState(true);
-  const [usageStats, setUsageStats] = useState<LocalUsageStats>({ toolsUsedToday: 0, filesProcessed: 0, bytesSaved: 0 });
+  const [usageStats, setUsageStats] = useState<LocalUsageStats>(readUsageStats());
 
   useEffect(() => {
-    setUsageStats(loadUsageStats());
+    const refreshUsage = () => setUsageStats(readUsageStats());
+    const onStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === usageStatsStorageKey) {
+        refreshUsage();
+      }
+    };
+
+    refreshUsage();
+    window.addEventListener(activityUpdatedEvent, refreshUsage);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refreshUsage);
+
+    return () => {
+      window.removeEventListener(activityUpdatedEvent, refreshUsage);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refreshUsage);
+    };
   }, []);
 
   useEffect(() => {

@@ -2,7 +2,8 @@ export const AI_INPUT_CHAR_LIMIT = {
   // Keep this lower than generic limits because this route also needs output tokens
   // within Groq on-demand TPM constraints.
   pdfToWord: 12_000,
-  summarize: 50_000,
+  // Larger limit to avoid cutting long documents during summarization.
+  summarize: 200_000,
   detectPii: 30_000,
   extractTable: 20_000,
   legibility: 2_000

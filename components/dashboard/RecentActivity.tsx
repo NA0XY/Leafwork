@@ -15,15 +15,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ComponentType } from "react";
 
+import { activityUpdatedEvent, readRecentActivity, recentActivityStorageKey, type ActivityItem } from "@/lib/utils/activity";
 import { timeAgo, truncateFilename } from "@/lib/utils/format";
-
-type ActivityItem = {
-  tool: string;
-  timestamp: string;
-  fileName?: string;
-};
-
-const KEY = "leafwork:recent-activity";
 
 const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   merge: Layers,
@@ -51,16 +44,23 @@ export const RecentActivity = () => {
   const [items, setItems] = useState<ActivityItem[]>([]);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (!raw) {
-        return;
+    const refresh = () => setItems(readRecentActivity().slice(0, 5));
+    const onStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === recentActivityStorageKey) {
+        refresh();
       }
-      const parsed = JSON.parse(raw) as ActivityItem[];
-      setItems(parsed.slice(0, 5));
-    } catch {
-      setItems([]);
-    }
+    };
+
+    refresh();
+    window.addEventListener(activityUpdatedEvent, refresh);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refresh);
+
+    return () => {
+      window.removeEventListener(activityUpdatedEvent, refresh);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refresh);
+    };
   }, []);
 
   if (!items.length) {

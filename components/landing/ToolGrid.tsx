@@ -25,50 +25,80 @@ type ToolCard = {
 };
 
 const tools: ToolCard[] = [
-  { title: "Merge", href: "/tools/merge", description: "Combine PDFs in custom order.", badge: "Core", icon: Layers },
-  { title: "Split", href: "/tools/split", description: "Split ranges, chunks, or selected pages.", badge: "Core", icon: Scissors },
+  {
+    title: "Merge",
+    href: "/tools/merge",
+    description: "Combine multiple PDFs in custom order with drag-and-drop control.",
+    badge: "Core",
+    icon: Layers
+  },
+  {
+    title: "Split",
+    href: "/tools/split",
+    description: "Split by range, every N pages, or selected pages with ZIP export.",
+    badge: "Core",
+    icon: Scissors
+  },
   {
     title: "Compress",
     href: "/tools/compress",
-    description: "Reduce file size with visibility into output quality.",
+    description: "Target a smaller file size while monitoring output quality and readability.",
     badge: "Core",
     icon: Minimize2
   },
   {
     title: "PDF to Word",
     href: "/tools/pdf-to-word",
-    description: "Extract structured text into editable output.",
+    description: "Extract layout-aware text and export editable output with AI assistance.",
     badge: "AI",
     icon: FileText
   },
   {
     title: "PDF to Images",
     href: "/tools/pdf-to-images",
-    description: "Convert selected pages to PNG or JPG.",
+    description: "Convert selected pages to JPG or PNG with quality controls.",
     badge: "Export",
     icon: Image
   },
   {
     title: "Watermark",
     href: "/tools/watermark",
-    description: "Apply text or image marks with live preview.",
+    description: "Add text or image watermarks with live page placement preview.",
     badge: "Edit",
     icon: Stamp
   },
-  { title: "Sign", href: "/tools/sign", description: "Place handwritten or typed signatures.", badge: "Edit", icon: PenLine },
-  { title: "Redact", href: "/tools/redact", description: "Hide sensitive regions permanently.", badge: "Secure", icon: EyeOff },
-  { title: "Rotate", href: "/tools/rotate", description: "Rotate selected pages or full files.", badge: "Edit", icon: RotateCw },
+  {
+    title: "Sign",
+    href: "/tools/sign",
+    description: "Draw, type, or upload signatures and place them precisely on any page.",
+    badge: "Edit",
+    icon: PenLine
+  },
+  {
+    title: "Redact",
+    href: "/tools/redact",
+    description: "Redact sensitive content with visual page targeting and permanent output.",
+    badge: "Secure",
+    icon: EyeOff
+  },
+  {
+    title: "Rotate",
+    href: "/tools/rotate",
+    description: "Rotate all pages or assign different rotation angles to selected pages.",
+    badge: "Edit",
+    icon: RotateCw
+  },
   {
     title: "Metadata Strip",
     href: "/tools/metadata-strip",
-    description: "Remove hidden metadata before sharing.",
+    description: "Remove hidden author and producer metadata before sharing files.",
     badge: "Secure",
     icon: ShieldOff
   },
   {
     title: "Summarize",
     href: "/tools/summarize",
-    description: "Get concise AI summaries from extracted text.",
+    description: "Generate AI summaries with key points, figures, and action items.",
     badge: "AI",
     icon: Sparkles
   }

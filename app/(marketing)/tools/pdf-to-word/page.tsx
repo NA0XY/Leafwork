@@ -1,4 +1,4 @@
-import { PdfToWordToolClient } from "@/app/(marketing)/tools/pdf-to-word/_PdfToWordToolClient";
+﻿import { PdfToWordToolClient } from "@/app/(marketing)/tools/pdf-to-word/_PdfToWordToolClient";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { generateToolMetadata } from "@/lib/utils/seo";
 
@@ -25,8 +25,10 @@ export default function PdfToWordToolPage() {
       toolTitle="PDF to Word (AI)"
       description="Extract layout-aware text and convert to editable markdown with AI assistance."
       faqs={faqs}
+      toolSlug="pdf-to-word"
     >
       <PdfToWordToolClient />
     </ToolPageShell>
   );
 }
+

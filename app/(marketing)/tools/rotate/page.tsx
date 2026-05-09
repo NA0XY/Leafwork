@@ -1,4 +1,4 @@
-import { RotateToolClient } from "@/app/(marketing)/tools/rotate/_RotateToolClient";
+﻿import { RotateToolClient } from "@/app/(marketing)/tools/rotate/_RotateToolClient";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { generateToolMetadata } from "@/lib/utils/seo";
 
@@ -25,8 +25,10 @@ export default function RotateToolPage() {
       toolTitle="Rotate PDF"
       description="Preview thumbnails, choose page scope, and rotate pages before export."
       faqs={faqs}
+      toolSlug="rotate"
     >
       <RotateToolClient />
     </ToolPageShell>
   );
 }
+

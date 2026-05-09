@@ -1,4 +1,4 @@
-import { SplitToolClient } from "@/app/(marketing)/tools/split/_SplitToolClient";
+﻿import { SplitToolClient } from "@/app/(marketing)/tools/split/_SplitToolClient";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { generateToolMetadata } from "@/lib/utils/seo";
 
@@ -25,8 +25,10 @@ export default function SplitToolPage() {
       toolTitle="Split PDF"
       description="Split by ranges, fixed chunks, or selected pages with local ZIP export."
       faqs={faqs}
+      toolSlug="split"
     >
       <SplitToolClient />
     </ToolPageShell>
   );
 }
+

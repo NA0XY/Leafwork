@@ -1,28 +1,119 @@
 ﻿import type { Metadata } from "next";
+import Script from "next/script";
 
-import { Card } from "@/components/ui/Card";
 import { canonicalUrl } from "@/lib/utils/seo";
 
 export const metadata: Metadata = {
   title: "About Leafwork",
-  description: "Why Leafwork is built as a local-first PDF workspace.",
+  description: "Why Leafwork was built and how local-first processing protects your documents.",
   alternates: {
     canonical: canonicalUrl("/about")
   }
 };
 
+const webPageSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  name: "About Leafwork",
+  description: "Why Leafwork was built and how it processes files locally without uploads.",
+  url: canonicalUrl("/about")
+};
+
+const stack = [
+  { name: "pdf-lib", desc: "PDF manipulation", href: "https://pdf-lib.js.org" },
+  { name: "PDF.js", desc: "PDF rendering", href: "https://mozilla.github.io/pdf.js" },
+  { name: "Groq", desc: "AI inference", href: "https://groq.com" },
+  { name: "Supabase", desc: "Auth and database", href: "https://supabase.com" },
+  { name: "Upstash", desc: "Rate limiting", href: "https://upstash.com" },
+  { name: "Vercel", desc: "Hosting", href: "https://vercel.com" }
+] as const;
+
+const principles = [
+  {
+    number: "01",
+    title: "Your files stay on your machine.",
+    desc: "Merging, splitting, compressing, signing, and redacting run in your browser. Your file bytes are not uploaded for core tools."
+  },
+  {
+    number: "02",
+    title: "AI features use extracted text, not file bytes.",
+    desc: "When you choose AI conversion or summarization, only extracted text is sent to the model to generate output."
+  },
+  {
+    number: "03",
+    title: "Core tools are free with no account wall.",
+    desc: "All eleven PDF workflows are available without forced upload pipelines, subscriptions, or watermark traps."
+  }
+] as const;
+
 export default function AboutPage() {
   return (
-    <Card className="space-y-4 bg-surface">
-      <h1 className="text-3xl font-bold">About Leafwork</h1>
-      <p className="text-base text-muted">
-        Leafwork is built around one promise: your documents stay in your browser by default. Most editing tools run
-        fully client-side with no upload requirement.
-      </p>
-      <p className="text-base text-muted">
-        AI-only features run on extracted text, not file bytes. We use free-tier services to keep the product accessible
-        and sustainable.
-      </p>
-    </Card>
+    <>
+      <Script
+        id="about-webpage-schema"
+        type="application/ld+json"
+        strategy="beforeInteractive"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageSchema) }}
+      />
+
+      <article className="mx-auto max-w-3xl space-y-10">
+        <header>
+          <h1 className="text-4xl font-bold leading-tight">Why we built Leafwork</h1>
+        </header>
+
+        <section>
+          <p className="text-lg leading-relaxed text-muted">
+            Most online PDF services are upload-first. For tax records, contracts, or identity documents, that is a risk
+            many people do not want. Leafwork was built so everyday PDF workflows can run locally by default.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="mb-4 text-2xl font-bold">How it works</h2>
+          <p className="leading-relaxed text-muted">
+            Modern browsers can run high-performance document tooling directly in a tab. Leafwork uses that capability
+            to process PDFs locally while still giving fast previews, batch tools, and optional AI output.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="mb-6 text-2xl font-bold">Three principles</h2>
+          <div className="space-y-4">
+            {principles.map((principle) => (
+              <div
+                key={principle.number}
+                className="flex gap-6 rounded-brutal border-2 border-ink bg-surface p-5 shadow-brutal"
+              >
+                <span className="font-mono text-3xl font-black text-primary">{principle.number}</span>
+                <div>
+                  <h3 className="font-bold">{principle.title}</h3>
+                  <p className="mt-1 text-sm text-muted">{principle.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-4 text-2xl font-bold">Built with</h2>
+          <p className="mb-4 text-sm text-muted">
+            Leafwork is built on free-tier and open tooling so anyone can run or contribute without enterprise lock-in.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {stack.map((item) => (
+              <a
+                key={item.name}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-brutal border-2 border-ink bg-green-50 px-3 py-2 text-sm font-semibold hover:bg-green-100"
+              >
+                {item.name} <span className="font-normal text-muted">- {item.desc}</span>
+              </a>
+            ))}
+          </div>
+        </section>
+      </article>
+    </>
   );
 }

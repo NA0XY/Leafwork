@@ -52,12 +52,18 @@ export const estimatePageCount = (bytes: Uint8Array): number => {
 };
 
 export const sanitizeFilename = (name: string, maxLength = 255): string => {
-  const base = name.replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, "_").trim();
-  const trimmed = base.slice(0, maxLength);
+  const normalized = name.replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, "_").trim();
+  const withoutTrailingDots = normalized.replace(/\.+$/, "");
+  const bounded = withoutTrailingDots.slice(0, maxLength).trim();
+  const safe = bounded.length > 0 ? bounded : "download";
 
-  if (!trimmed.toLowerCase().endsWith(".pdf")) {
-    return `${trimmed.replace(/\.+$/, "")}.pdf`;
+  // Preserve explicit extensions (zip/docx/png/pdf/etc). If none is present,
+  // fall back to PDF to keep backward compatibility for existing call sites.
+  if (/\.[A-Za-z0-9]{1,10}$/.test(safe)) {
+    return safe;
   }
 
-  return trimmed;
+  const baseMax = Math.max(1, maxLength - 4);
+  const base = safe.slice(0, baseMax).replace(/\.+$/, "").trim() || "download";
+  return `${base}.pdf`;
 };

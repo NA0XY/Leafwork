@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { ClipboardCopy, Download } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
 import { Button } from "@/components/ui/Button";
@@ -10,6 +10,8 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { extractTextWithLayout } from "@/lib/ai/extraction";
+import { trackToolActivity } from "@/lib/utils/activity";
+import { analytics } from "@/lib/utils/analytics";
 
 const downloadText = (content: string, filename: string): void => {
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
@@ -21,49 +23,158 @@ const downloadText = (content: string, filename: string): void => {
   URL.revokeObjectURL(url);
 };
 
-const pickListItems = (text: string): string[] =>
-  text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith("-") || line.startsWith("*"))
-    .map((line) => line.replace(/^[-*]\s*/, ""));
+type SummarySection = "overview" | "keyPoints" | "figures" | "actions";
 
-const pickFigureCandidates = (text: string): string[] => {
-  const lines = text.split("\n").map((line) => line.trim());
-  return lines.filter((line) => /\d/.test(line)).slice(0, 8);
+type ParsedSummary = {
+  overview: string;
+  keyPoints: string[];
+  figures: string[];
+  actions: string[];
 };
 
-const pickActionItems = (text: string): string[] => {
-  const lines = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-  return lines.filter((line) => /\b(should|next|action|review|follow|prepare|send|complete)\b/i.test(line)).slice(0, 8);
+const normalizeHeading = (line: string): string =>
+  line
+    .replace(/^\s*[#>\-\*\+\d\.\)\(:\s]+/, "")
+    .replace(/\*{1,2}/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/[:\s]+$/, "")
+    .trim()
+    .toLowerCase();
+
+const detectSectionHeading = (line: string): SummarySection | null => {
+  const normalized = normalizeHeading(line);
+
+  if (normalized === "overview" || normalized.startsWith("overview ")) {
+    return "overview";
+  }
+
+  if (normalized === "key points" || normalized === "key takeaways" || normalized.startsWith("key points ")) {
+    return "keyPoints";
+  }
+
+  if (
+    normalized === "important figures/dates" ||
+    normalized === "important figures and dates" ||
+    normalized === "figures/dates" ||
+    normalized === "figures and dates"
+  ) {
+    return "figures";
+  }
+
+  if (normalized === "action items" || normalized === "next steps" || normalized === "actions") {
+    return "actions";
+  }
+
+  return null;
+};
+
+const cleanContentLine = (line: string): string =>
+  line
+    .replace(/^\s*>\s*/, "")
+    .replace(/^\s*(?:[-*+]|[\u2022\u25CF\u25E6\u25AA]|\d+[.)])\s+/, "")
+    .replace(/^\*{1,2}\s*([^*].*?)\s*\*{1,2}$/, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const toUnique = (items: string[], max: number): string[] =>
+  Array.from(
+    new Set(
+      items
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
+        .filter((item) => detectSectionHeading(item) === null)
+    )
+  ).slice(0, max);
+
+const parseSummary = (text: string): ParsedSummary => {
+  const sectionLines: Record<SummarySection, string[]> = {
+    overview: [],
+    keyPoints: [],
+    figures: [],
+    actions: []
+  };
+
+  const rawLines = text.split(/\r?\n/);
+  const bulletLines = rawLines.filter((line) => /^\s*(?:[-*+]|[\u2022\u25CF\u25E6\u25AA]|\d+[.)])\s+/.test(line));
+  const cleanedLines = rawLines.map(cleanContentLine).filter(Boolean);
+
+  let currentSection: SummarySection | null = null;
+
+  for (const raw of rawLines) {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    const heading = detectSectionHeading(trimmed);
+    if (heading) {
+      currentSection = heading;
+      continue;
+    }
+
+    const cleaned = cleanContentLine(trimmed);
+    if (!cleaned) {
+      continue;
+    }
+
+    if (!currentSection) {
+      sectionLines.overview.push(cleaned);
+      continue;
+    }
+
+    sectionLines[currentSection].push(cleaned);
+  }
+
+  const keyPoints = toUnique(sectionLines.keyPoints, 20);
+  const figures = toUnique(sectionLines.figures.filter((line) => /\d/.test(line)), 20);
+  const actions = toUnique(sectionLines.actions, 20);
+
+  const fallbackBullets = toUnique(bulletLines.map(cleanContentLine), 20);
+  const fallbackFigures = toUnique(cleanedLines.filter((line) => /\d/.test(line)), 20);
+  const fallbackActions = toUnique(
+    cleanedLines.filter((line) => /\b(should|next|action|review|follow|prepare|send|complete|develop|implement|conduct|continue)\b/i.test(line)),
+    20
+  );
+
+  const overview = toUnique(sectionLines.overview, 12).join(" ") || cleanedLines.slice(0, 5).join(" ");
+
+  return {
+    overview,
+    keyPoints: keyPoints.length ? keyPoints : fallbackBullets,
+    figures: figures.length ? figures : fallbackFigures,
+    actions: actions.length ? actions : fallbackActions
+  };
 };
 
 export const SummarizeToolClient = () => {
   const toast = useToast();
   const { isAuthenticated } = useAuth();
+  const blockedTrackedRef = useRef(false);
   const [file, setFile] = useState<File | null>(null);
   const [summary, setSummary] = useState("");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [charCount, setCharCount] = useState(0);
+  const [wasTruncated, setWasTruncated] = useState(false);
 
-  const keyPoints = useMemo(() => pickListItems(summary), [summary]);
-  const figureCandidates = useMemo(() => pickFigureCandidates(summary), [summary]);
-  const actionItems = useMemo(() => pickActionItems(summary), [summary]);
+  const parsedSummary = useMemo(() => parseSummary(summary), [summary]);
+  const keyPoints = parsedSummary.keyPoints;
+  const figureCandidates = parsedSummary.figures;
+  const actionItems = parsedSummary.actions;
+  const overview = parsedSummary.overview;
 
-  const overview = useMemo(() => {
-    const cleaned = summary
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .slice(0, 3)
-      .join(" ");
-    return cleaned;
-  }, [summary]);
+  useEffect(() => {
+    if (!file) {
+      blockedTrackedRef.current = false;
+      return;
+    }
+
+    if (!isAuthenticated && !blockedTrackedRef.current) {
+      analytics.aiBlocked("not_authenticated");
+      blockedTrackedRef.current = true;
+    }
+  }, [file, isAuthenticated]);
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -97,8 +208,10 @@ export const SummarizeToolClient = () => {
                     setProgress(10);
                     setError(null);
                     setSummary("");
+                    setWasTruncated(false);
 
                     try {
+                      analytics.aiFeatureUsed("summarize");
                       const bytes = new Uint8Array(await file.arrayBuffer());
                       const extractedText = await extractTextWithLayout(bytes);
                       setCharCount(extractedText.length);
@@ -113,12 +226,16 @@ export const SummarizeToolClient = () => {
                         })
                       });
 
-                      const payload = (await response.json()) as { data?: { summary?: string }; error?: { message?: string } };
+                      const payload = (await response.json()) as {
+                        data?: { summary?: string; truncated?: boolean };
+                        error?: { message?: string };
+                      };
                       if (!response.ok || !payload.data?.summary) {
                         throw new Error(payload.error?.message ?? "Unable to summarize this file");
                       }
 
                       setSummary(payload.data.summary);
+                      setWasTruncated(Boolean(payload.data.truncated));
                       setProgress(100);
                     } catch (err) {
                       setError(err instanceof Error ? err.message : "Summary failed");
@@ -159,7 +276,19 @@ export const SummarizeToolClient = () => {
               size="sm"
               variant="secondary"
               disabled={!summary || !file}
-              onClick={() => downloadText(summary, `${file?.name.replace(/\.pdf$/i, "") ?? "summary"}_summary.txt`)}
+              onClick={() => {
+                const outputName = `${file?.name.replace(/\.pdf$/i, "") ?? "summary"}_summary.txt`;
+                downloadText(summary, outputName);
+                if (file) {
+                  trackToolActivity({
+                    tool: "summarize",
+                    fileName: outputName,
+                    filesProcessed: 1,
+                    inputBytes: file.size,
+                    outputBytes: new TextEncoder().encode(summary).length
+                  });
+                }
+              }}
             >
               <Download className="h-3.5 w-3.5" /> Download
             </Button>
@@ -173,6 +302,9 @@ export const SummarizeToolClient = () => {
             <div>
               <p className="font-bold">Overview</p>
               <p className="mt-1 text-muted">{overview}</p>
+              {wasTruncated ? (
+                <p className="mt-2 text-xs text-amber-800">Large document detected: summary was generated from a shortened input window.</p>
+              ) : null}
             </div>
 
             <div>
@@ -217,6 +349,11 @@ export const SummarizeToolClient = () => {
                 </ul>
               </div>
             ) : null}
+
+            <details className="rounded-brutal border-2 border-ink bg-paper p-2">
+              <summary className="cursor-pointer font-semibold">Raw AI Output</summary>
+              <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-muted">{summary}</pre>
+            </details>
           </div>
         ) : null}
       </section>

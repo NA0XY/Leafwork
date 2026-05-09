@@ -1,0 +1,23 @@
+﻿{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "headers": [
+    {
+      "source": "/workers/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" },
+        { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" }
+      ]
+    }
+  ],
+  "functions": {
+    "app/api/ai/pdf-to-word/route.ts": { "maxDuration": 30 },
+    "app/api/ai/extract-table/route.ts": { "maxDuration": 30 },
+    "app/api/ai/summarize/route.ts": { "maxDuration": 30 },
+    "app/api/ai/detect-pii/route.ts": { "maxDuration": 30 },
+    "app/api/ai/legibility-check/route.ts": { "maxDuration": 15 }
+  }
+}

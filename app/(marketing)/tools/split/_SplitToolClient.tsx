@@ -9,6 +9,7 @@ import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
 import { extractPages, splitByPages, splitEveryN, type PageRange } from "@/lib/pdf/split";
 import { getPageCount, renderThumbnail } from "@/lib/pdf/renderer";
+import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
 import { formatPageCount } from "@/lib/utils/format";
 
@@ -255,6 +256,13 @@ export const SplitToolClient = () => {
               });
               const blob = await zip.generateAsync({ type: "blob" });
               downloadBlob(blob, `${file.name.replace(/\.pdf$/i, "")}_split_ranges.zip`);
+              trackToolActivity({
+                tool: "split",
+                fileName: file.name,
+                filesProcessed: 1,
+                inputBytes: file.size,
+                outputBytes: blob.size
+              });
               toast.success("Split complete", `${result.data.length} files created`);
               return;
             }
@@ -270,6 +278,13 @@ export const SplitToolClient = () => {
               result.data.forEach((entry) => zip.file(entry.filename, entry.blob));
               const blob = await zip.generateAsync({ type: "blob" });
               downloadBlob(blob, `${file.name.replace(/\.pdf$/i, "")}_split_chunks.zip`);
+              trackToolActivity({
+                tool: "split",
+                fileName: file.name,
+                filesProcessed: 1,
+                inputBytes: file.size,
+                outputBytes: blob.size
+              });
               toast.success("Split complete", `${result.data.length} files created`);
               return;
             }
@@ -281,6 +296,13 @@ export const SplitToolClient = () => {
               return;
             }
             downloadBlob(result.data.blob, result.data.filename);
+            trackToolActivity({
+              tool: "split",
+              fileName: result.data.filename,
+              filesProcessed: result.data.pageCount,
+              inputBytes: file.size,
+              outputBytes: result.data.blob.size
+            });
             toast.success("Pages extracted", `${result.data.pageCount} page(s) exported`);
           }}
         >

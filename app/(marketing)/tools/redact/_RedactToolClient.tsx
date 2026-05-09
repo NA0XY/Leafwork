@@ -4,15 +4,14 @@ import { useState } from "react";
 
 import { RedactPanel, type RedactionArea } from "@/components/tools/RedactPanel";
 import { DropZone } from "@/components/ui/DropZone";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { withPdfLib } from "@/lib/pdf/engine";
+import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
 
 export const RedactToolClient = () => {
   const [file, setFile] = useState<File | null>(null);
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
-  const { isAuthenticated } = useAuth();
   const toast = useToast();
 
   if (!file || !bytes) {
@@ -38,7 +37,6 @@ export const RedactToolClient = () => {
     <RedactPanel
       file={file}
       bytes={bytes}
-      isAuthenticated={isAuthenticated}
       onRemoveFile={() => {
         setFile(null);
         setBytes(null);
@@ -78,6 +76,13 @@ export const RedactToolClient = () => {
         }
 
         downloadBlob(result.data, `${file.name.replace(/\.pdf$/i, "")}_redacted.pdf`);
+        trackToolActivity({
+          tool: "redact",
+          fileName: file.name,
+          filesProcessed: 1,
+          inputBytes: file.size,
+          outputBytes: result.data.size
+        });
         toast.success("Redacted PDF downloaded");
       }}
     />

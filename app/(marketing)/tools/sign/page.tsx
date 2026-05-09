@@ -1,4 +1,4 @@
-import { SignToolClient } from "@/app/(marketing)/tools/sign/_SignToolClient";
+﻿import { SignToolClient } from "@/app/(marketing)/tools/sign/_SignToolClient";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { generateToolMetadata } from "@/lib/utils/seo";
 
@@ -25,8 +25,10 @@ export default function SignToolPage() {
       toolTitle="Sign PDF"
       description="Create or upload signatures, position them visually, and export signed PDFs locally."
       faqs={faqs}
+      toolSlug="sign"
     >
       <SignToolClient />
     </ToolPageShell>
   );
 }
+

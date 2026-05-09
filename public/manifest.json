@@ -1,0 +1,16 @@
+﻿{
+  "name": "Leafwork PDF Tools",
+  "short_name": "Leafwork",
+  "description": "Free browser-based PDF tools. No uploads. No account required.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f0e8",
+  "theme_color": "#1a6b3c",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ]
+}

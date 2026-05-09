@@ -9,6 +9,8 @@ import { stripMetadata } from "@/lib/pdf/metadata";
 import { rotateAll } from "@/lib/pdf/rotate";
 import { extractPages, splitByPages, splitEveryN, type PageRange } from "@/lib/pdf/split";
 import { addImageWatermark, addTextWatermark } from "@/lib/pdf/watermark";
+import { trackToolActivity } from "@/lib/utils/activity";
+import { analytics } from "@/lib/utils/analytics";
 import { downloadBlob } from "@/lib/utils/file";
 import { logger } from "@/lib/utils/logger";
 import { useCanvasStore } from "@/store/canvas-store";
@@ -100,6 +102,16 @@ export const usePDFEngine = () => {
           processingMessage: `Merging ${files.length} file${files.length === 1 ? "" : "s"}...`,
           onSuccess: (blob) => {
             downloadBlob(blob, "merged.pdf");
+            analytics.mergeUsed(files.length);
+            analytics.toolUsed("merge", { file_count: files.length });
+            analytics.downloadComplete("merge", blob.size);
+            trackToolActivity({
+              tool: "merge",
+              fileName: "merged.pdf",
+              filesProcessed: files.length,
+              inputBytes: files.reduce((total, item) => total + item.size, 0),
+              outputBytes: blob.size
+            });
           }
         }
       ),
@@ -121,6 +133,16 @@ export const usePDFEngine = () => {
           processingMessage: "Splitting ranges...",
           onSuccess: (chunks) => {
             chunks.forEach((entry) => downloadBlob(entry.blob, entry.filename));
+            analytics.splitUsed("range", chunks.length);
+            analytics.toolUsed("split", { output_count: chunks.length });
+            analytics.downloadComplete("split");
+            trackToolActivity({
+              tool: "split",
+              fileName: file.name,
+              filesProcessed: 1,
+              inputBytes: file.size,
+              outputBytes: chunks.reduce((total, entry) => total + entry.blob.size, 0)
+            });
           }
         }
       ),
@@ -142,6 +164,16 @@ export const usePDFEngine = () => {
           processingMessage: `Splitting every ${pagesPerFile} page(s)...`,
           onSuccess: (chunks) => {
             chunks.forEach((entry) => downloadBlob(entry.blob, entry.filename));
+            analytics.splitUsed("every_n", chunks.length);
+            analytics.toolUsed("split", { output_count: chunks.length });
+            analytics.downloadComplete("split");
+            trackToolActivity({
+              tool: "split",
+              fileName: file.name,
+              filesProcessed: 1,
+              inputBytes: file.size,
+              outputBytes: chunks.reduce((total, entry) => total + entry.blob.size, 0)
+            });
           }
         }
       ),
@@ -163,6 +195,16 @@ export const usePDFEngine = () => {
           processingMessage: "Extracting selected pages...",
           onSuccess: (result) => {
             downloadBlob(result.blob, result.filename);
+            analytics.splitUsed("extract", pageNumbers.length);
+            analytics.toolUsed("split", { selected_pages: pageNumbers.length });
+            analytics.downloadComplete("split", result.blob.size);
+            trackToolActivity({
+              tool: "split",
+              fileName: result.filename,
+              filesProcessed: pageNumbers.length,
+              inputBytes: file.size,
+              outputBytes: result.blob.size
+            });
           }
         }
       ),
@@ -184,6 +226,16 @@ export const usePDFEngine = () => {
           processingMessage: "Compressing file locally...",
           onSuccess: (result) => {
             downloadBlob(result.blob, `${file.name.replace(/\.pdf$/i, "")}_compressed.pdf`);
+            analytics.compressionUsed(targetKB, result.compressedBytes / 1024);
+            analytics.toolUsed("compress", { target_kb: targetKB });
+            analytics.downloadComplete("compress", result.compressedBytes);
+            trackToolActivity({
+              tool: "compress",
+              fileName: file.name,
+              filesProcessed: 1,
+              inputBytes: result.originalBytes,
+              outputBytes: result.compressedBytes
+            });
           }
         }
       ),
@@ -205,6 +257,15 @@ export const usePDFEngine = () => {
           processingMessage: "Applying page rotations...",
           onSuccess: (blob) => {
             downloadBlob(blob, `${file.name.replace(/\.pdf$/i, "")}_rotated.pdf`);
+            analytics.toolUsed("rotate");
+            analytics.downloadComplete("rotate", blob.size);
+            trackToolActivity({
+              tool: "rotate",
+              fileName: file.name,
+              filesProcessed: 1,
+              inputBytes: file.size,
+              outputBytes: blob.size
+            });
           }
         }
       ),
@@ -235,6 +296,15 @@ export const usePDFEngine = () => {
           processingMessage: "Applying text watermark...",
           onSuccess: (blob) => {
             downloadBlob(blob, `${file.name.replace(/\.pdf$/i, "")}_watermarked.pdf`);
+            analytics.toolUsed("watermark");
+            analytics.downloadComplete("watermark", blob.size);
+            trackToolActivity({
+              tool: "watermark",
+              fileName: file.name,
+              filesProcessed: 1,
+              inputBytes: file.size,
+              outputBytes: blob.size
+            });
           }
         }
       ),
@@ -264,6 +334,15 @@ export const usePDFEngine = () => {
           processingMessage: "Applying image watermark...",
           onSuccess: (blob) => {
             downloadBlob(blob, `${file.name.replace(/\.pdf$/i, "")}_watermarked.pdf`);
+            analytics.toolUsed("watermark");
+            analytics.downloadComplete("watermark", blob.size);
+            trackToolActivity({
+              tool: "watermark",
+              fileName: file.name,
+              filesProcessed: 1,
+              inputBytes: file.size,
+              outputBytes: blob.size
+            });
           }
         }
       ),
@@ -285,6 +364,15 @@ export const usePDFEngine = () => {
           processingMessage: "Removing metadata...",
           onSuccess: (blob) => {
             downloadBlob(blob, `${file.name.replace(/\.pdf$/i, "")}_clean.pdf`);
+            analytics.toolUsed("metadata-strip");
+            analytics.downloadComplete("metadata-strip", blob.size);
+            trackToolActivity({
+              tool: "metadata-strip",
+              fileName: file.name,
+              filesProcessed: 1,
+              inputBytes: file.size,
+              outputBytes: blob.size
+            });
           }
         }
       ),

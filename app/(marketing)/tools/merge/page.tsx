@@ -1,4 +1,4 @@
-import { MergeToolClient } from "@/app/(marketing)/tools/merge/_MergeToolClient";
+﻿import { MergeToolClient } from "@/app/(marketing)/tools/merge/_MergeToolClient";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { generateToolMetadata } from "@/lib/utils/seo";
 
@@ -25,8 +25,10 @@ export default function MergeToolPage() {
       toolTitle="Merge PDF"
       description="Combine multiple PDFs in a single local session with drag-to-reorder controls."
       faqs={faqs}
+      toolSlug="merge"
     >
       <MergeToolClient />
     </ToolPageShell>
   );
 }
+

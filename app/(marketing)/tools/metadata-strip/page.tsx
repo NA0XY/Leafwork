@@ -1,4 +1,4 @@
-import { MetadataStripToolClient } from "@/app/(marketing)/tools/metadata-strip/_MetadataStripToolClient";
+﻿import { MetadataStripToolClient } from "@/app/(marketing)/tools/metadata-strip/_MetadataStripToolClient";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { generateToolMetadata } from "@/lib/utils/seo";
 
@@ -25,8 +25,10 @@ export default function MetadataStripToolPage() {
       toolTitle="Strip Metadata"
       description="Clean hidden metadata before sharing documents outside your environment."
       faqs={faqs}
+      toolSlug="metadata-strip"
     >
       <MetadataStripToolClient />
     </ToolPageShell>
   );
 }
+

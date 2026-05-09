@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { renderPage } from "@/lib/pdf/renderer";
 
@@ -12,6 +12,7 @@ type PDFCanvasProps = {
 
 export const PDFCanvas = ({ bytes, pageNumber, scale = 1.2 }: PDFCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -21,11 +22,17 @@ export const PDFCanvas = ({ bytes, pageNumber, scale = 1.2 }: PDFCanvasProps) =>
         return;
       }
 
+      setIsLoading(true);
+
       try {
         await renderPage(bytes, pageNumber, scale, canvasRef.current, controller.signal);
       } catch (error) {
         if ((error as DOMException).name !== "AbortError") {
           console.error("pdf_canvas_render_error", error);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
         }
       }
     };
@@ -37,5 +44,14 @@ export const PDFCanvas = ({ bytes, pageNumber, scale = 1.2 }: PDFCanvasProps) =>
     };
   }, [bytes, pageNumber, scale]);
 
-  return <canvas ref={canvasRef} className="block h-auto max-w-full" aria-label={`PDF page ${pageNumber}`} />;
+  return (
+    <div className="relative w-full" style={{ paddingBottom: "141.42%" }}>
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 h-full w-full object-contain"
+        aria-label={`PDF page ${pageNumber}`}
+      />
+      {isLoading ? <div className="absolute inset-0 animate-pulse rounded-brutal bg-green-50" /> : null}
+    </div>
+  );
 };

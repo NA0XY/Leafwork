@@ -9,6 +9,20 @@ const config: Config = {
     "./store/**/*.{js,ts,jsx,tsx,mdx}",
     "./lib/**/*.{js,ts,jsx,tsx,mdx}"
   ],
+  safelist: [
+    "brutalist-card",
+    "shadow-brutal",
+    "rounded-brutal",
+    "border-primary",
+    "border-accent",
+    "border-ink",
+    "bg-paper",
+    "bg-surface",
+    "bg-accent",
+    { pattern: /^animate-(slideUp|wiggle|fadeIn|pulse|spin)$/ },
+    { pattern: /^border-t-(primary|emerald-500|teal-500|green-400|lime-500|slate-400)$/ },
+    { pattern: /^text-(primary|muted|ink)$/ }
+  ],
   theme: {
     screens: {
       sm: "640px",

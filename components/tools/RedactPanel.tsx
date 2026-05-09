@@ -1,13 +1,13 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Sparkles, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { PDFCanvas } from "@/components/canvas/PDFCanvas";
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { PageNavigator } from "@/components/tools/PageNavigator";
 import { Button } from "@/components/ui/Button";
 import { getPageCount } from "@/lib/pdf/renderer";
-import { truncateFilename } from "@/lib/utils/format";
 
 export type RedactionArea = {
   id: string;
@@ -18,17 +18,9 @@ export type RedactionArea = {
   height: number;
 };
 
-type PiiSuggestion = {
-  type: string;
-  value: string;
-  context: string;
-  suggestedBbox?: null;
-};
-
 type RedactPanelProps = {
   file: File;
   bytes: Uint8Array;
-  isAuthenticated: boolean;
   onRemoveFile: () => void;
   onApply: (areas: RedactionArea[]) => Promise<void>;
 };
@@ -56,14 +48,12 @@ const normalizeRect = (startX: number, startY: number, endX: number, endY: numbe
   return { x, y, width, height };
 };
 
-export const RedactPanel = ({ file, bytes, isAuthenticated, onRemoveFile, onApply }: RedactPanelProps) => {
+export const RedactPanel = ({ file, bytes, onRemoveFile, onApply }: RedactPanelProps) => {
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const [pageCount, setPageCount] = useState(1);
   const [pageNumber, setPageNumber] = useState(1);
   const [areas, setAreas] = useState<RedactionArea[]>([]);
   const [drawing, setDrawing] = useState<DrawingState>(null);
-  const [loadingPii, setLoadingPii] = useState(false);
-  const [piiSuggestions, setPiiSuggestions] = useState<PiiSuggestion[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,23 +120,7 @@ export const RedactPanel = ({ file, bytes, isAuthenticated, onRemoveFile, onAppl
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
         <div className="space-y-3 rounded-brutal border-2 border-ink bg-surface p-4 shadow-brutal">
-          <div className="flex items-center justify-center gap-3">
-            <Button type="button" size="sm" variant="secondary" disabled={pageNumber <= 1} onClick={() => setPageNumber((value) => value - 1)}>
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </Button>
-            <p className="text-sm font-semibold">
-              Page {pageNumber} / {pageCount}
-            </p>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={pageNumber >= pageCount}
-              onClick={() => setPageNumber((value) => value + 1)}
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          <PageNavigator pageNumber={pageNumber} pageCount={pageCount} onPageChange={setPageNumber} />
 
           <div className="relative rounded-brutal border-2 border-ink bg-paper p-2">
             <div className="relative">
@@ -234,58 +208,6 @@ export const RedactPanel = ({ file, bytes, isAuthenticated, onRemoveFile, onAppl
               </li>
             ))}
           </ul>
-
-          <div className="space-y-2 border-t-2 border-ink pt-3">
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={!isAuthenticated || loadingPii}
-              onClick={async () => {
-                if (!isAuthenticated) {
-                  return;
-                }
-
-                setLoadingPii(true);
-                try {
-                  const response = await fetch("/api/ai/detect-pii", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      extractedText: `Filename: ${file.name}`,
-                      pageCount,
-                      filename: file.name
-                    })
-                  });
-
-                  const payload = (await response.json()) as { data?: PiiSuggestion[] };
-                  setPiiSuggestions(payload.data ?? []);
-                } catch {
-                  setPiiSuggestions([]);
-                } finally {
-                  setLoadingPii(false);
-                }
-              }}
-            >
-              <Sparkles className="h-3.5 w-3.5" /> Auto-detect sensitive text
-            </Button>
-
-            {!isAuthenticated ? <p className="text-xs text-muted">Login to use AI-assisted redaction.</p> : null}
-
-            {piiSuggestions.length > 0 ? (
-              <ul className="max-h-48 space-y-2 overflow-auto">
-                {piiSuggestions.map((item, index) => (
-                  <li key={`${item.value}-${index}`} className="rounded-brutal border-2 border-orange-700 bg-orange-100 p-2">
-                    <p className="text-xs font-semibold text-orange-900">{item.type}</p>
-                    <p className="text-xs" title={item.value}>
-                      {truncateFilename(item.value, 44)}
-                    </p>
-                    <p className="mt-1 text-[11px] text-muted">{item.context}</p>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
         </aside>
       </section>
     </div>

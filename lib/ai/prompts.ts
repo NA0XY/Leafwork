@@ -13,7 +13,12 @@ export const SUMMARIZE_SYSTEM = `Summarize the provided text in under 400 words 
 1) Overview (2-3 sentences)
 2) Key Points (bullet list)
 3) Important Figures/Dates
-4) Action Items`;
+4) Action Items
+Formatting rules:
+- Plain text output only (no markdown bold/italics/code fences).
+- Keep section headers exactly as written above.
+- Use "-" bullets only for Key Points and Action Items.
+- For Important Figures/Dates, return concise bullet points with numbers or dates only.`;
 
 export const LEGIBILITY_CHECK_SYSTEM = `Return JSON only:
 { "readable": boolean, "confidence": "high"|"medium"|"low", "issues": string[] }

@@ -1,35 +1,27 @@
-import Link from "next/link";
+﻿import Link from "next/link";
+import Script from "next/script";
 import { Lock } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { generateFAQSchema } from "@/lib/utils/seo";
-
-type FAQ = {
-  q: string;
-  a: string;
-};
+import {
+  generateFAQSchema,
+  generateSoftwareAppSchema,
+  getToolFaqs,
+  type ToolFAQ,
+  type ToolSlug
+} from "@/lib/utils/seo";
 
 type ToolPageShellProps = {
   toolTitle: string;
   description: string;
-  faqs: FAQ[];
+  faqs?: ToolFAQ[];
+  toolSlug?: ToolSlug;
   children: ReactNode;
 };
 
-export const ToolPageShell = ({ toolTitle, description, faqs, children }: ToolPageShellProps) => {
-  const softwareSchema = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: `Leafwork ${toolTitle}`,
-    applicationCategory: "BusinessApplication",
-    operatingSystem: "Web",
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "USD"
-    },
-    description
-  };
+export const ToolPageShell = ({ toolTitle, description, faqs, toolSlug, children }: ToolPageShellProps) => {
+  const fallbackFaqs = toolSlug ? getToolFaqs(toolSlug) : [];
+  const faqItems = faqs && faqs.length > 0 ? faqs : fallbackFaqs;
 
   return (
     <div className="space-y-6">
@@ -56,22 +48,39 @@ export const ToolPageShell = ({ toolTitle, description, faqs, children }: ToolPa
 
       {children}
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-bold">FAQ</h2>
-        <div className="space-y-2">
-          {faqs.map((faq) => (
-            <details key={faq.q} className="rounded-brutal border-2 border-ink bg-surface p-3">
-              <summary className="cursor-pointer rounded-brutal border-2 border-ink bg-paper px-3 py-2 text-sm font-semibold">
-                {faq.q}
-              </summary>
-              <p className="mt-3 text-sm text-muted">{faq.a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
+      {toolSlug && faqItems.length > 0 ? (
+        <section className="space-y-3 below-fold">
+          <h2 className="text-2xl font-bold">FAQ</h2>
+          <div className="space-y-2">
+            {faqItems.map((faq) => (
+              <details key={faq.q} className="rounded-brutal border-2 border-ink bg-surface p-3">
+                <summary className="cursor-pointer rounded-brutal border-2 border-ink bg-paper px-3 py-2 text-sm font-semibold">
+                  {faq.q}
+                </summary>
+                <p className="mt-3 text-sm text-muted">{faq.a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(generateFAQSchema(faqs)) }} />
+      {toolSlug ? (
+        <>
+          <Script
+            id={`${toolSlug}-software-schema`}
+            type="application/ld+json"
+           
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(generateSoftwareAppSchema(toolSlug)) }}
+          />
+          <Script
+            id={`${toolSlug}-faq-schema`}
+            type="application/ld+json"
+           
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(generateFAQSchema(faqItems)) }}
+          />
+        </>
+      ) : null}
     </div>
   );
 };
+

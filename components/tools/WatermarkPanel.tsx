@@ -1,10 +1,11 @@
 ﻿"use client";
 
-import { ChevronLeft, ChevronRight, Image as ImageIcon } from "lucide-react";
+import { Image as ImageIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PDFCanvas } from "@/components/canvas/PDFCanvas";
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { PageNavigator } from "@/components/tools/PageNavigator";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -55,9 +56,21 @@ type WatermarkPanelProps = {
     colorHex: string;
     pageNumber: number;
   }) => Promise<void>;
+  onTextWatermarkAll: (input: {
+    text: string;
+    fontSize: number;
+    opacity: number;
+    rotation: number;
+    position: WatermarkPosition;
+    colorHex: string;
+  }) => Promise<void>;
   onImageWatermark: (
     imageData: string,
     input: { opacity: number; rotation: number; position: WatermarkPosition; imageSize: number; pageNumber: number }
+  ) => Promise<void>;
+  onImageWatermarkAll: (
+    imageData: string,
+    input: { opacity: number; rotation: number; position: WatermarkPosition; imageSize: number }
   ) => Promise<void>;
   onDownload: () => void;
 };
@@ -71,7 +84,9 @@ export const WatermarkPanel = ({
   appliedCount,
   onRemoveFile,
   onTextWatermark,
+  onTextWatermarkAll,
   onImageWatermark,
+  onImageWatermarkAll,
   onDownload
 }: WatermarkPanelProps) => {
   const [tab, setTab] = useState<"text" | "image">("text");
@@ -85,6 +100,7 @@ export const WatermarkPanel = ({
   const [imageSize, setImageSize] = useState(30);
   const [pageCount, setPageCount] = useState(1);
   const [pageNumber, setPageNumber] = useState(1);
+  const canApply = tab === "text" ? text.trim().length > 0 : Boolean(imageData);
 
   useEffect(() => {
     let cancelled = false;
@@ -272,6 +288,7 @@ export const WatermarkPanel = ({
             <Button
               type="button"
               loading={isProcessing}
+              disabled={!canApply}
               onClick={() => {
                 if (tab === "text") {
                   void onTextWatermark({
@@ -298,6 +315,36 @@ export const WatermarkPanel = ({
               }}
             >
               Place watermark on this page
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              loading={isProcessing}
+              disabled={!canApply}
+              onClick={() => {
+                if (tab === "text") {
+                  void onTextWatermarkAll({
+                    text,
+                    fontSize,
+                    opacity: opacity / 100,
+                    rotation,
+                    position,
+                    colorHex
+                  });
+                  return;
+                }
+
+                if (imageData) {
+                  void onImageWatermarkAll(imageData, {
+                    opacity: opacity / 100,
+                    rotation,
+                    position,
+                    imageSize
+                  });
+                }
+              }}
+            >
+              Place watermark on all pages
             </Button>
             <Button type="button" variant="secondary" disabled={appliedCount < 1} onClick={onDownload}>
               Download Watermarked PDF
@@ -338,23 +385,7 @@ export const WatermarkPanel = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-3">
-            <Button type="button" size="sm" variant="secondary" disabled={pageNumber <= 1} onClick={() => setPageNumber((page) => page - 1)}>
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </Button>
-            <p className="text-sm font-semibold">
-              Page {pageNumber} / {pageCount}
-            </p>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={pageNumber >= pageCount}
-              onClick={() => setPageNumber((page) => page + 1)}
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          <PageNavigator pageNumber={pageNumber} pageCount={pageCount} onPageChange={setPageNumber} />
         </div>
       </section>
     </div>

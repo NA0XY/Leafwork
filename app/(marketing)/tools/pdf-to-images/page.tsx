@@ -1,4 +1,4 @@
-import { PdfToImagesToolClient } from "@/app/(marketing)/tools/pdf-to-images/_PdfToImagesToolClient";
+﻿import { PdfToImagesToolClient } from "@/app/(marketing)/tools/pdf-to-images/_PdfToImagesToolClient";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { generateToolMetadata } from "@/lib/utils/seo";
 
@@ -25,8 +25,10 @@ export default function PdfToImagesToolPage() {
       toolTitle="PDF to Images"
       description="Convert selected PDF pages to PNG or JPG with preview and ZIP export."
       faqs={faqs}
+      toolSlug="pdf-to-images"
     >
       <PdfToImagesToolClient />
     </ToolPageShell>
   );
 }
+

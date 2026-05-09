@@ -9,9 +9,27 @@ import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
 import { withPdfLib } from "@/lib/pdf/engine";
 import { getPageCount, renderThumbnail } from "@/lib/pdf/renderer";
+import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
 
 type Rotation = -90 | 90 | 180;
+
+const normalizeRotationDelta = (rotation: Rotation): 90 | 180 | 270 => {
+  if (rotation === -90) {
+    return 270;
+  }
+  return rotation;
+};
+
+const formatRotation = (rotation: Rotation): string => {
+  if (rotation === -90) {
+    return "↺ 90 deg";
+  }
+  if (rotation === 90) {
+    return "↻ 90 deg";
+  }
+  return "↻↻ 180 deg";
+};
 
 export const RotateToolClient = () => {
   const toast = useToast();
@@ -21,6 +39,7 @@ export const RotateToolClient = () => {
   const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] = useState<"all" | "selected">("all");
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
+  const [pageRotationPlan, setPageRotationPlan] = useState<Map<number, Rotation>>(new Map());
   const [rotation, setRotation] = useState<Rotation>(90);
   const [busy, setBusy] = useState(false);
 
@@ -38,7 +57,8 @@ export const RotateToolClient = () => {
       }
 
       setPageCount(count);
-      setSelectedPages(new Set(Array.from({ length: count }, (_, index) => index)));
+      setSelectedPages(new Set());
+      setPageRotationPlan(new Map());
 
       const nextThumbs: string[] = [];
       for (let page = 1; page <= count; page += 1) {
@@ -56,12 +76,26 @@ export const RotateToolClient = () => {
     };
   }, [bytes]);
 
-  const pagesToRotate = useMemo(() => {
+  const operationPlan = useMemo(() => {
     if (selectionMode === "all") {
-      return Array.from({ length: pageCount }, (_, index) => index);
+      return Array.from({ length: pageCount }, (_, index) => ({
+        pageIndex: index,
+        delta: rotation
+      }));
     }
-    return Array.from(selectedPages.values());
-  }, [pageCount, selectedPages, selectionMode]);
+
+    if (pageRotationPlan.size > 0) {
+      return Array.from(pageRotationPlan.entries()).map(([pageIndex, delta]) => ({
+        pageIndex,
+        delta
+      }));
+    }
+
+    return Array.from(selectedPages.values()).map((pageIndex) => ({
+      pageIndex,
+      delta: rotation
+    }));
+  }, [pageCount, pageRotationPlan, rotation, selectedPages, selectionMode]);
 
   if (!file || !bytes) {
     return (
@@ -92,6 +126,7 @@ export const RotateToolClient = () => {
           setBytes(null);
           setThumbnails([]);
           setSelectedPages(new Set());
+          setPageRotationPlan(new Map());
         }}
       />
 
@@ -122,9 +157,72 @@ export const RotateToolClient = () => {
           </Button>
         </div>
 
+        {selectionMode === "selected" ? (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setSelectedPages(new Set(Array.from({ length: pageCount }, (_, index) => index)))}
+            >
+              Select all pages
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setPageRotationPlan(
+                  new Map(Array.from({ length: pageCount }, (_, index) => [index, rotation] as [number, Rotation]))
+                );
+              }}
+            >
+              Set all pages: {formatRotation(rotation)}
+            </Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => setSelectedPages(new Set())}>
+              Clear selection
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                if (!selectedPages.size) {
+                  toast.info("No pages selected", "Select one or more pages first.");
+                  return;
+                }
+
+                setPageRotationPlan((current) => {
+                  const next = new Map(current);
+                  selectedPages.forEach((pageIndex) => next.set(pageIndex, rotation));
+                  return next;
+                });
+              }}
+            >
+              Set selected: {formatRotation(rotation)}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() =>
+                setPageRotationPlan((current) => {
+                  const next = new Map(current);
+                  selectedPages.forEach((pageIndex) => next.delete(pageIndex));
+                  return next;
+                })
+              }
+            >
+              Clear selected settings
+            </Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => setPageRotationPlan(new Map())}>
+              Clear all page settings
+            </Button>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {thumbnails.map((thumbnail, index) => {
             const selected = selectedPages.has(index);
+            const plannedRotation = pageRotationPlan.get(index);
             return (
               <button
                 key={`rotate-thumb-${index}`}
@@ -147,9 +245,13 @@ export const RotateToolClient = () => {
               >
                 <img src={thumbnail} alt={`Page ${index + 1}`} className="mb-2 h-auto w-full" />
                 <p className="text-xs font-semibold">Page {index + 1}</p>
-                {selectionMode === "selected" && selected ? (
+                {plannedRotation ? (
+                  <span className="absolute bottom-2 right-2 rounded-full border border-ink bg-yellow-200 px-2 py-0.5 text-[10px] font-bold">
+                    {formatRotation(plannedRotation)}
+                  </span>
+                ) : selectionMode === "selected" && selected ? (
                   <span className="absolute bottom-2 right-2 rounded-full border border-ink bg-accent px-2 py-0.5 text-[10px] font-bold">
-                    Rotating
+                    Selected
                   </span>
                 ) : null}
               </button>
@@ -160,17 +262,17 @@ export const RotateToolClient = () => {
         <Button
           type="button"
           loading={busy}
-          disabled={!pagesToRotate.length}
+          disabled={!operationPlan.length}
           onClick={async () => {
             setBusy(true);
 
             const result = await withPdfLib(async (pdfLib) => {
               const doc = await pdfLib.PDFDocument.load(bytes);
 
-              pagesToRotate.forEach((pageIndex) => {
+              operationPlan.forEach(({ pageIndex, delta }) => {
                 const page = doc.getPage(pageIndex);
                 const current = page.getRotation().angle;
-                page.setRotation(pdfLib.degrees((current + rotation + 360) % 360));
+                page.setRotation(pdfLib.degrees((current + normalizeRotationDelta(delta) + 360) % 360));
               });
 
               const output = await doc.save({ useObjectStreams: true, addDefaultPage: false });
@@ -185,6 +287,13 @@ export const RotateToolClient = () => {
             }
 
             downloadBlob(result.data, `${file.name.replace(/\.pdf$/i, "")}_rotated.pdf`);
+            trackToolActivity({
+              tool: "rotate",
+              fileName: file.name,
+              filesProcessed: 1,
+              inputBytes: file.size,
+              outputBytes: result.data.size
+            });
             toast.success("Rotated PDF downloaded");
           }}
         >

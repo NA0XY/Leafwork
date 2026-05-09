@@ -9,6 +9,8 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { extractTextWithLayout } from "@/lib/ai/extraction";
 import { markdownToDocxBlob } from "@/lib/documents/markdown-to-docx";
 import { pdfToLayoutDocxBlob } from "@/lib/documents/pdf-layout-docx";
+import { trackToolActivity } from "@/lib/utils/activity";
+import { analytics } from "@/lib/utils/analytics";
 import { downloadBlob } from "@/lib/utils/file";
 
 const downloadMarkdown = (content: string, filename: string): void => {
@@ -52,6 +54,7 @@ export const PdfToWordToolClient = () => {
                 setTruncated(false);
 
                 try {
+                  analytics.aiFeatureUsed("pdf_to_word");
                   const bytes = new Uint8Array(await file.arrayBuffer());
                   const extractedText = await extractTextWithLayout(bytes);
                   setProgress(45);
@@ -123,6 +126,13 @@ export const PdfToWordToolClient = () => {
                         const title = file.name.replace(/\.pdf$/i, "");
                         const blob = await markdownToDocxBlob(markdown, title);
                         downloadBlob(blob, `${title}.docx`);
+                        trackToolActivity({
+                          tool: "pdf-to-word",
+                          fileName: `${title}.docx`,
+                          filesProcessed: 1,
+                          inputBytes: file.size,
+                          outputBytes: blob.size
+                        });
                       } finally {
                         setDocxBusy(false);
                       }
@@ -145,6 +155,13 @@ export const PdfToWordToolClient = () => {
                         const sourceBytes = new Uint8Array(await file.arrayBuffer());
                         const blob = await pdfToLayoutDocxBlob(sourceBytes);
                         downloadBlob(blob, `${title}_layout.docx`);
+                        trackToolActivity({
+                          tool: "pdf-to-word",
+                          fileName: `${title}_layout.docx`,
+                          filesProcessed: 1,
+                          inputBytes: file.size,
+                          outputBytes: blob.size
+                        });
                       } finally {
                         setLayoutDocxBusy(false);
                       }
@@ -156,7 +173,15 @@ export const PdfToWordToolClient = () => {
                   <Button
                     variant="secondary"
                     onClick={() => {
-                      downloadMarkdown(markdown, `${file.name.replace(/\.pdf$/i, "")}.md`);
+                      const outputName = `${file.name.replace(/\.pdf$/i, "")}.md`;
+                      downloadMarkdown(markdown, outputName);
+                      trackToolActivity({
+                        tool: "pdf-to-word",
+                        fileName: outputName,
+                        filesProcessed: 1,
+                        inputBytes: file.size,
+                        outputBytes: new TextEncoder().encode(markdown).length
+                      });
                     }}
                   >
                     Download Markdown
