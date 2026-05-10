@@ -24,6 +24,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
+  applicationName: "Leafwork",
   title: {
     default: "Leafwork - Free PDF Tools. No Upload Required.",
     template: "%s | Leafwork"
@@ -54,12 +55,17 @@ export const metadata: Metadata = {
     images: [ogImageUrl()]
   },
   verification: {
-    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ?? ""
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ?? "1kZrEcjYnhAxQ_UO6KTY8Wqhi2ooagh4B5C_-728uBw"
   },
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg"
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-48x48.png", type: "image/png", sizes: "48x48" },
+      { url: "/favicon.svg", type: "image/svg+xml" }
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/favicon.ico"
   }
 };
 

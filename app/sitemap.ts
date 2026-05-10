@@ -9,7 +9,7 @@ type SitemapEntry = {
 };
 
 const entries: SitemapEntry[] = [
-  { route: "", priority: 1.0, changeFrequency: "weekly" },
+  { route: "/", priority: 1.0, changeFrequency: "weekly" },
   { route: "/tools", priority: 0.9, changeFrequency: "weekly" },
   { route: "/tools/merge", priority: 0.85, changeFrequency: "monthly" },
   { route: "/tools/compress", priority: 0.85, changeFrequency: "monthly" },

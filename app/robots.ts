@@ -3,6 +3,8 @@
 import { BASE_URL } from "@/lib/utils/seo";
 
 export default function robots(): MetadataRoute.Robots {
+  const host = new URL(BASE_URL).host;
+
   return {
     rules: [
       {
@@ -32,6 +34,6 @@ export default function robots(): MetadataRoute.Robots {
       }
     ],
     sitemap: `${BASE_URL}/sitemap.xml`,
-    host: BASE_URL
+    host
   };
 }

@@ -30,13 +30,14 @@ export default function MarketingHomePage() {
     "@type": "Organization",
     name: "Leafwork",
     url: canonicalUrl("/"),
-    logo: canonicalUrl("/favicon.svg")
+    logo: canonicalUrl("/icon-512.png")
   };
 
   const websiteSchema = {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "Leafwork",
+    alternateName: "Leafwork PDF Tools",
     url: canonicalUrl("/"),
     potentialAction: {
       "@type": "SearchAction",
