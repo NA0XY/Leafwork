@@ -7,8 +7,8 @@ const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://leafworkpdf.vercel.
 const githubUrl = process.env.NEXT_PUBLIC_GITHUB_URL ?? "https://github.com/NA0XY/Leafwork";
 const isProduction = process.env.NODE_ENV === "production";
 const vercelCommitSha = process.env.VERCEL_GIT_COMMIT_SHA;
-const scriptSources = ["'self'", "https://va.vercel-scripts.com"];
-const developmentScriptSources = [...scriptSources, "'unsafe-eval'", "'unsafe-inline'"];
+const scriptSources = ["'self'", "'unsafe-inline'", "https://va.vercel-scripts.com", "https://vercel.live"];
+const developmentScriptSources = [...scriptSources, "'unsafe-eval'"];
 const cspScriptSources = isProduction ? scriptSources : developmentScriptSources;
 const cspScriptElementSources = isProduction ? scriptSources : developmentScriptSources;
 
