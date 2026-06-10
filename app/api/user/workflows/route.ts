@@ -7,7 +7,7 @@ import {
   workflowUpdateInputSchema,
   validateAndParse
 } from "@/lib/validations/api";
-import { jsonError, parseJsonBody } from "@/lib/utils/api";
+import { getJsonBodyErrorResponse, jsonError, parseJsonBody } from "@/lib/utils/api";
 
 const PAGE_SIZE = 20;
 
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
   }
 
-  const supabase = getSupabaseServerClient();
+  const supabase = await getSupabaseServerClient();
   const cursor = request.nextUrl.searchParams.get("cursor");
   const limit = Math.min(Number(request.nextUrl.searchParams.get("limit") ?? PAGE_SIZE), PAGE_SIZE);
 
@@ -80,11 +80,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const parsedBody = await parseJsonBody<unknown>(request);
   if ("error" in parsedBody) {
-    return jsonError(400, {
-      code: "INVALID_JSON",
-      message: parsedBody.error,
-      requestId
-    });
+    return getJsonBodyErrorResponse(parsedBody, requestId);
   }
 
   const validated = validateAndParse(workflowCreateInputSchema, parsedBody.data);
@@ -96,7 +92,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
   }
 
-  const supabase = getSupabaseServerClient();
+  const supabase = await getSupabaseServerClient();
   const { data, error } = await supabase
     .from("workflows")
     .insert({
@@ -141,11 +137,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
   const parsedBody = await parseJsonBody<unknown>(request);
   if ("error" in parsedBody) {
-    return jsonError(400, {
-      code: "INVALID_JSON",
-      message: parsedBody.error,
-      requestId
-    });
+    return getJsonBodyErrorResponse(parsedBody, requestId);
   }
 
   const validated = validateAndParse(workflowUpdateInputSchema, parsedBody.data);
@@ -157,7 +149,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     });
   }
 
-  const supabase = getSupabaseServerClient();
+  const supabase = await getSupabaseServerClient();
   const { data: existing, error: existingError } = await supabase
     .from("workflows")
     .select("id,user_id")
@@ -216,11 +208,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
 
   const parsedBody = await parseJsonBody<unknown>(request);
   if ("error" in parsedBody) {
-    return jsonError(400, {
-      code: "INVALID_JSON",
-      message: parsedBody.error,
-      requestId
-    });
+    return getJsonBodyErrorResponse(parsedBody, requestId);
   }
 
   const validated = validateAndParse(workflowDeleteInputSchema, parsedBody.data);
@@ -232,7 +220,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     });
   }
 
-  const supabase = getSupabaseServerClient();
+  const supabase = await getSupabaseServerClient();
   const { data: existing, error: existingError } = await supabase
     .from("workflows")
     .select("id,user_id")
