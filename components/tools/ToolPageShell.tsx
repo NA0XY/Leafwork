@@ -68,6 +68,20 @@ export const ToolPageShell = ({ toolTitle, description, faqs, toolSlug, children
         </div>
       </header>
 
+      {feature && !feature.enabled ? (
+        <section className="rounded-brutal border-2 border-ink bg-surface p-6 shadow-brutal">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-2xl font-bold">{feature.label}</h2>
+            <Badge tone="warning">{toolTitle}</Badge>
+          </div>
+          <p className="mt-3 max-w-2xl text-sm text-muted">
+            This tool is not available right now. It can be turned back on from the Leafwork feature flags.
+          </p>
+        </section>
+      ) : (
+        children
+      )}
+
       {answerBlock && directAnswer ? (
         <section aria-labelledby={`${toolSlug}-direct-answer`} className="rounded-brutal border-2 border-ink bg-surface p-4 shadow-brutal">
           <div className="flex flex-wrap items-center gap-2">
@@ -98,20 +112,6 @@ export const ToolPageShell = ({ toolTitle, description, faqs, toolSlug, children
           </div>
         </section>
       ) : null}
-
-      {feature && !feature.enabled ? (
-        <section className="rounded-brutal border-2 border-ink bg-surface p-6 shadow-brutal">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-2xl font-bold">{feature.label}</h2>
-            <Badge tone="warning">{toolTitle}</Badge>
-          </div>
-          <p className="mt-3 max-w-2xl text-sm text-muted">
-            This tool is not available right now. It can be turned back on from the Leafwork feature flags.
-          </p>
-        </section>
-      ) : (
-        children
-      )}
 
       {toolSlug ? (
         <section className="space-y-3">
