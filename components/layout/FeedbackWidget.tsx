@@ -174,20 +174,26 @@ export const FeedbackWidget = () => {
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-5">
-              {categories.map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  className={cn(
-                    "min-h-10 rounded-brutal border-2 border-ink bg-paper px-2 py-2 text-sm font-bold",
-                    category === item.value && "bg-accent"
-                  )}
-                  onClick={() => setCategory(item.value)}
-                  aria-pressed={category === item.value}
-                >
-                  {item.label}
-                </button>
-              ))}
+              {categories.map((item) => {
+                const isSelected = category === item.value;
+
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    className={cn(
+                      "min-h-10 rounded-brutal border-2 px-2 py-2 text-sm font-bold transition-colors duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                      isSelected
+                        ? "border-primary bg-accent text-ink shadow-brutal-sm ring-4 ring-primary ring-offset-2 ring-offset-surface"
+                        : "border-ink bg-paper text-ink hover:bg-green-50"
+                    )}
+                    onClick={() => setCategory(item.value)}
+                    aria-pressed={isSelected}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="space-y-2">
