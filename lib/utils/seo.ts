@@ -21,7 +21,8 @@ export type JsonLdSchema = {
   [key: string]: JsonLdValue;
 };
 
-export const serializeJsonLd = (schema: JsonLdSchema | JsonLdSchema[]): string => JSON.stringify(schema);
+export const serializeJsonLd = (schema: JsonLdSchema | JsonLdSchema[]): string =>
+  JSON.stringify(schema).replace(/</g, "\\u003c");
 
 export type ToolFAQ = {
   q: string;

@@ -1,7 +1,7 @@
 ﻿import type { Metadata } from "next";
-import Script from "next/script";
 
-import { canonicalUrl, generateWebPageSchema, serializeJsonLd } from "@/lib/utils/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { canonicalUrl, generateWebPageSchema } from "@/lib/utils/seo";
 
 export const metadata: Metadata = {
   title: "About Leafwork",
@@ -49,12 +49,7 @@ const principles = [
 export default function AboutPage() {
   return (
     <>
-      <Script
-        id="about-webpage-schema"
-        type="application/ld+json"
-        strategy="beforeInteractive"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(webPageSchema) }}
-      />
+      <JsonLd id="about-webpage-schema" schema={webPageSchema} />
 
       <article className="mx-auto max-w-3xl space-y-10">
         <header>

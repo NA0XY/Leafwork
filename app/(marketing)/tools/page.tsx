@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 
 import { ToolGrid } from "@/components/landing/ToolGrid";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { getToolFeatureState } from "@/lib/config/features";
 import {
   TOOL_NAV_ITEMS,
@@ -9,8 +9,7 @@ import {
   canonicalUrl,
   generateBreadcrumbSchema,
   generateToolCollectionSchema,
-  getAvailableToolNavItems,
-  serializeJsonLd
+  getAvailableToolNavItems
 } from "@/lib/utils/seo";
 
 export const metadata: Metadata = {
@@ -62,16 +61,8 @@ export default function ToolsDirectoryPage() {
         </ul>
       </section>
 
-      <Script
-        id="tools-breadcrumb-schema"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(generateBreadcrumbSchema({})) }}
-      />
-      <Script
-        id="tools-collection-schema"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(generateToolCollectionSchema()) }}
-      />
+      <JsonLd id="tools-breadcrumb-schema" schema={generateBreadcrumbSchema({})} />
+      <JsonLd id="tools-collection-schema" schema={generateToolCollectionSchema()} />
     </div>
   );
 }
