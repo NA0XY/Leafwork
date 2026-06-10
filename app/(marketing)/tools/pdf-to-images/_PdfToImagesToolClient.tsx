@@ -5,12 +5,15 @@ import { Download, Image as ImageIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { ZoomablePreview } from "@/components/tools/ZoomablePreview";
 import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
+import { clonePdfBytes, loadPdfJs } from "@/lib/pdf/pdfjs";
 import { getPageCount, renderPage, renderThumbnail } from "@/lib/pdf/renderer";
 import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
+import { getSafeRasterScale, validateBrowserLocalPageBudget } from "@/lib/validations/pdf-safety";
 
 type ConvertedImage = {
   page: number;
@@ -24,6 +27,20 @@ const SCALE_MAP = {
   print: 1.5,
   high: 3
 } as const;
+
+const getSafePageScale = async (bytes: Uint8Array, pageNumber: number, requestedScale: number) => {
+  const pdfjs = await loadPdfJs();
+  const loadingTask = pdfjs.getDocument({ data: clonePdfBytes(bytes) });
+  const pdf = await loadingTask.promise;
+
+  try {
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: 1 });
+    return getSafeRasterScale(viewport.width, viewport.height, requestedScale);
+  } finally {
+    await pdf.destroy();
+  }
+};
 
 export const PdfToImagesToolClient = () => {
   const toast = useToast();
@@ -51,6 +68,14 @@ export const PdfToImagesToolClient = () => {
         return;
       }
 
+      const pageBudgetError = validateBrowserLocalPageBudget(count, "This PDF");
+      if (pageBudgetError) {
+        toast.error("PDF too large for browser conversion", pageBudgetError);
+        setPageCount(0);
+        setSelectedPages(new Set());
+        return;
+      }
+
       setPageCount(count);
       setSelectedPages(new Set(Array.from({ length: count }, (_, index) => index)));
 
@@ -68,7 +93,7 @@ export const PdfToImagesToolClient = () => {
     return () => {
       cancelled = true;
     };
-  }, [bytes]);
+  }, [bytes, toast]);
 
   const selectedList = useMemo(() => Array.from(selectedPages.values()).sort((a, b) => a - b), [selectedPages]);
 
@@ -170,7 +195,12 @@ export const PdfToImagesToolClient = () => {
                   });
                 }}
               >
-                <img src={thumbnail} alt={`Page ${index + 1}`} className="mb-2 h-auto w-full" />
+                <ZoomablePreview
+                  src={thumbnail}
+                  alt={`Page ${index + 1}`}
+                  className="mb-2"
+                  imageClassName="h-auto w-full rounded-brutal border border-ink"
+                />
                 <p className="text-xs font-semibold">Page {index + 1}</p>
                 {selected ? <span className="absolute right-2 top-2 rounded-full bg-accent px-2 text-[10px] font-bold">On</span> : null}
               </button>
@@ -196,7 +226,12 @@ export const PdfToImagesToolClient = () => {
               setProgressText(`Converting page ${i + 1} of ${selectedList.length}...`);
 
               const canvas = document.createElement("canvas");
-              await renderPage(bytes, pageNumber, SCALE_MAP[resolution], canvas);
+              const safeScale = await getSafePageScale(bytes, pageNumber, SCALE_MAP[resolution]);
+              if (safeScale.wasConstrained) {
+                toast.info("Resolution reduced", `Page ${pageNumber} was scaled down to stay within the browser pixel budget.`);
+              }
+
+              await renderPage(bytes, pageNumber, safeScale.scale, canvas);
               const dataUrl = canvas.toDataURL(mimeType, quality);
 
               const blob = await new Promise<Blob>((resolve) => {
@@ -260,7 +295,11 @@ export const PdfToImagesToolClient = () => {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {results.map((entry) => (
               <article key={entry.filename} className="rounded-brutal border-2 border-ink bg-paper p-2">
-                <img src={entry.dataUrl} alt={entry.filename} className="h-auto w-full rounded-brutal border border-ink" />
+                <ZoomablePreview
+                  src={entry.dataUrl}
+                  alt={entry.filename}
+                  imageClassName="h-auto w-full rounded-brutal border border-ink"
+                />
                 <p className="mt-2 text-xs font-semibold">{entry.filename}</p>
                 <Button
                   type="button"

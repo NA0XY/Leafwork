@@ -1,5 +1,17 @@
 ﻿export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
+type FeedbackCategory =
+  | "bug"
+  | "idea"
+  | "quality"
+  | "confusing"
+  | "privacy_access"
+  | "privacy_correction"
+  | "privacy_erasure"
+  | "consent_withdrawal"
+  | "grievance"
+  | "other";
+
 export type Database = {
   public: {
     Tables: {
@@ -67,6 +79,45 @@ export type Database = {
         };
         Update: {
           ai_tokens_used?: number | null;
+        };
+        Relationships: [];
+      };
+      feedback_submissions: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          category: FeedbackCategory;
+          message: string;
+          email: string | null;
+          rating: number | null;
+          page_path: string;
+          user_agent: string | null;
+          status: "new" | "reviewed" | "planned" | "closed";
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          category: FeedbackCategory;
+          message: string;
+          email?: string | null;
+          rating?: number | null;
+          page_path?: string;
+          user_agent?: string | null;
+          status?: "new" | "reviewed" | "planned" | "closed";
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          category?: FeedbackCategory;
+          message?: string;
+          email?: string | null;
+          rating?: number | null;
+          page_path?: string;
+          user_agent?: string | null;
+          status?: "new" | "reviewed" | "planned" | "closed";
+          metadata?: Json;
         };
         Relationships: [];
       };

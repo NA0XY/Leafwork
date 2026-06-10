@@ -27,6 +27,10 @@ export interface CompressionTarget {
   maxBytes?: number;
   quality?: number;
   targetKB?: number;
+  stripMetadata?: boolean;
+  allowRasterization?: boolean;
+  keepTextSharp?: boolean;
+  grayscale?: boolean;
 }
 
 export type WatermarkPosition =

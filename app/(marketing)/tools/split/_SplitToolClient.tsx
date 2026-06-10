@@ -4,10 +4,11 @@ import JSZip from "jszip";
 import { useEffect, useMemo, useState } from "react";
 
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { ZoomablePreview } from "@/components/tools/ZoomablePreview";
 import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
-import { extractPages, splitByPages, splitEveryN, type PageRange } from "@/lib/pdf/split";
+import { extractPages, splitByPages, splitEveryN, type PageRange, type SplitOutput } from "@/lib/pdf/split";
 import { getPageCount, renderThumbnail } from "@/lib/pdf/renderer";
 import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
@@ -61,6 +62,7 @@ export const SplitToolClient = () => {
   const [rangesInput, setRangesInput] = useState("1-2, 3-4");
   const [everyN, setEveryN] = useState(2);
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
+  const [downloadMode, setDownloadMode] = useState<"zip" | "files" | "both">("zip");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -110,6 +112,35 @@ export const SplitToolClient = () => {
   const ranges = useMemo(() => parseRanges(rangesInput), [rangesInput]);
   const rangeValid = useMemo(() => rangesAreValid(ranges, pageCount), [pageCount, ranges]);
   const extractList = useMemo(() => Array.from(selectedPages.values()).sort((a, b) => a - b).map((page) => page + 1), [selectedPages]);
+
+  const downloadSplitOutputs = async (outputs: SplitOutput[], zipName: string, sourceFileName: string, inputBytes: number) => {
+    let outputBytes = 0;
+
+    if (downloadMode === "zip" || downloadMode === "both") {
+      const zip = new JSZip();
+      outputs.forEach((entry) => {
+        zip.file(entry.filename, entry.blob);
+      });
+      const blob = await zip.generateAsync({ type: "blob" });
+      outputBytes += blob.size;
+      downloadBlob(blob, zipName);
+    }
+
+    if (downloadMode === "files" || downloadMode === "both") {
+      outputs.forEach((entry) => {
+        outputBytes += entry.blob.size;
+        downloadBlob(entry.blob, entry.filename);
+      });
+    }
+
+    trackToolActivity({
+      tool: "split",
+      fileName: sourceFileName,
+      filesProcessed: outputs.length,
+      inputBytes,
+      outputBytes
+    });
+  };
 
   if (!file || !bytes) {
     return (
@@ -204,6 +235,29 @@ export const SplitToolClient = () => {
           </div>
         ) : null}
 
+        {mode !== "extract" ? (
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">Download</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                ["zip", "ZIP"],
+                ["files", "PDF files"],
+                ["both", "Both"]
+              ].map(([value, label]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  size="sm"
+                  variant={downloadMode === value ? "primary" : "secondary"}
+                  onClick={() => setDownloadMode(value as "zip" | "files" | "both")}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {thumbnails.map((thumbnail, index) => {
             const selected = selectedPages.has(index);
@@ -228,7 +282,12 @@ export const SplitToolClient = () => {
                   });
                 }}
               >
-                <img src={thumbnail} alt={`Page ${index + 1}`} className="mb-2 h-auto w-full" />
+                <ZoomablePreview
+                  src={thumbnail}
+                  alt={`Page ${index + 1}`}
+                  className="mb-2"
+                  imageClassName="h-auto w-full rounded-brutal border border-ink"
+                />
                 <p className="text-xs font-semibold">Page {index + 1}</p>
               </button>
             );
@@ -244,47 +303,27 @@ export const SplitToolClient = () => {
 
             if (mode === "range") {
               const result = await splitByPages(file, ranges);
-              setBusy(false);
               if (!result.data) {
+                setBusy(false);
                 toast.error("Split failed", result.error?.message ?? "Unable to split PDF");
                 return;
               }
 
-              const zip = new JSZip();
-              result.data.forEach((entry) => {
-                zip.file(entry.filename, entry.blob);
-              });
-              const blob = await zip.generateAsync({ type: "blob" });
-              downloadBlob(blob, `${file.name.replace(/\.pdf$/i, "")}_split_ranges.zip`);
-              trackToolActivity({
-                tool: "split",
-                fileName: file.name,
-                filesProcessed: 1,
-                inputBytes: file.size,
-                outputBytes: blob.size
-              });
+              await downloadSplitOutputs(result.data, `${file.name.replace(/\.pdf$/i, "")}_split_ranges.zip`, file.name, file.size);
+              setBusy(false);
               toast.success("Split complete", `${result.data.length} files created`);
               return;
             }
 
             if (mode === "every") {
               const result = await splitEveryN(file, everyN);
-              setBusy(false);
               if (!result.data) {
+                setBusy(false);
                 toast.error("Split failed", result.error?.message ?? "Unable to split PDF");
                 return;
               }
-              const zip = new JSZip();
-              result.data.forEach((entry) => zip.file(entry.filename, entry.blob));
-              const blob = await zip.generateAsync({ type: "blob" });
-              downloadBlob(blob, `${file.name.replace(/\.pdf$/i, "")}_split_chunks.zip`);
-              trackToolActivity({
-                tool: "split",
-                fileName: file.name,
-                filesProcessed: 1,
-                inputBytes: file.size,
-                outputBytes: blob.size
-              });
+              await downloadSplitOutputs(result.data, `${file.name.replace(/\.pdf$/i, "")}_split_chunks.zip`, file.name, file.size);
+              setBusy(false);
               toast.success("Split complete", `${result.data.length} files created`);
               return;
             }

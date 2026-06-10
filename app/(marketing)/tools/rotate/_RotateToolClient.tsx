@@ -4,6 +4,7 @@ import { RotateCcw, RotateCw, Repeat } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { ZoomablePreview } from "@/components/tools/ZoomablePreview";
 import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
@@ -243,7 +244,12 @@ export const RotateToolClient = () => {
                   });
                 }}
               >
-                <img src={thumbnail} alt={`Page ${index + 1}`} className="mb-2 h-auto w-full" />
+                <ZoomablePreview
+                  src={thumbnail}
+                  alt={`Page ${index + 1}`}
+                  className="mb-2"
+                  imageClassName="h-auto w-full rounded-brutal border border-ink"
+                />
                 <p className="text-xs font-semibold">Page {index + 1}</p>
                 {plannedRotation ? (
                   <span className="absolute bottom-2 right-2 rounded-full border border-ink bg-yellow-200 px-2 py-0.5 text-[10px] font-bold">

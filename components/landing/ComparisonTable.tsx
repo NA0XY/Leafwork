@@ -20,7 +20,7 @@ const differences: DifferenceCard[] = [
       "Files are uploaded to remote servers before any processing can begin. That introduces waiting and privacy risk.",
     leafworkTitle: "Leafwork way",
     leafworkDescription:
-      "Everything runs in your browser memory. File bytes stay in this tab and never travel across the network.",
+      "Core PDF operations run in your browser memory. For those workflows, file bytes stay in the tab instead of being uploaded to Leafwork.",
     icon: CloudUpload
   },
   {
@@ -30,7 +30,7 @@ const differences: DifferenceCard[] = [
       "Server-side tools enforce size ceilings and queue times. Large files often hit hard limits or timeout.",
     leafworkTitle: "Leafwork way",
     leafworkDescription:
-      "No server means no server cap. Process files of any size with immediate local execution.",
+      "No upload queue means fewer server-side limits. Practical limits depend on your browser, device memory, and the document itself.",
     icon: InfinityIcon
   },
   {
@@ -40,7 +40,7 @@ const differences: DifferenceCard[] = [
       "Every task can require another page load and upload cycle. You repeat setup again and again.",
     leafworkTitle: "Leafwork way",
     leafworkDescription:
-      "One session can merge, compress, sign, and export continuously without re-uploading each file.",
+      "One session can merge, split, sign, and export continuously without re-uploading each file.",
     icon: RefreshCw
   },
   {
@@ -50,7 +50,7 @@ const differences: DifferenceCard[] = [
       "Some AI flows send full documents to third-party models. Sensitive content leaves your control.",
     leafworkTitle: "Leafwork way",
     leafworkDescription:
-      "Only extracted text is used for AI features, and never file bytes. You stay in control with explicit consent.",
+      "AI tools are coming soon. When enabled, they will use extracted text rather than full PDF file bytes.",
     icon: Sparkles
   }
 ];

@@ -28,8 +28,8 @@ const features = [
   },
   {
     icon: Sparkles,
-    title: "AI when needed",
-    description: "AI tools consume extracted text for summaries and conversions."
+    title: "AI coming soon",
+    description: "Future AI tools will use extracted text, not full PDF file bytes."
   },
   {
     icon: CloudOff,
@@ -39,7 +39,7 @@ const features = [
   {
     icon: FileText,
     title: "No account for core tools",
-    description: "Merge, split, compress, sign, rotate, and more without login walls."
+    description: "Merge, split, sign, rotate, convert, and clean documents without login walls."
   }
 ] as const;
 
@@ -72,7 +72,7 @@ export const FeatureGrid = () => {
       <div className="space-y-2">
         <h2 className="text-3xl font-bold">How Leafwork works</h2>
         <p className="max-w-3xl text-sm text-muted">
-          Built for practical document work: local speed, clear previews, and optional AI for text-heavy tasks.
+          Built for practical document work: local speed, clear previews, and clean final exports.
         </p>
       </div>
 

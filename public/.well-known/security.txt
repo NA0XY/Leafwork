@@ -1,4 +1,0 @@
-﻿Contact: security@leafworkpdf.app
-Expires: 2026-12-31T23:59:00.000Z
-Preferred-Languages: en
-Canonical: https://leafworkpdf.vercel.app/.well-known/security.txt

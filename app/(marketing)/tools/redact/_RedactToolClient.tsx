@@ -6,6 +6,7 @@ import { RedactPanel, type RedactionArea } from "@/components/tools/RedactPanel"
 import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
 import { withPdfLib } from "@/lib/pdf/engine";
+import { secureRedactPdfBytes } from "@/lib/pdf/security";
 import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
 
@@ -48,26 +49,22 @@ export const RedactToolClient = () => {
         }
 
         const result = await withPdfLib(async (pdfLib) => {
-          const doc = await pdfLib.PDFDocument.load(bytes);
+          const output = await secureRedactPdfBytes(
+            pdfLib,
+            bytes,
+            areas.map((area) => ({
+              pageNumber: area.page,
+              x: area.x,
+              y: area.y,
+              width: area.width,
+              height: area.height
+            }))
+          );
 
-          for (const area of areas) {
-            const pageIndex = Math.max(0, area.page - 1);
-            const page = doc.getPage(pageIndex);
-            const size = page.getSize();
-
-            page.drawRectangle({
-              x: area.x * size.width,
-              y: size.height - (area.y + area.height) * size.height,
-              width: area.width * size.width,
-              height: area.height * size.height,
-              color: pdfLib.rgb(0, 0, 0),
-              borderColor: pdfLib.rgb(0, 0, 0),
-              borderWidth: 0
-            });
-          }
-
-          const output = await doc.save({ useObjectStreams: true, addDefaultPage: false });
-          return new Blob([output], { type: "application/pdf" });
+          return {
+            blob: new Blob([output.bytes], { type: "application/pdf" }),
+            warnings: output.warnings
+          };
         });
 
         if (!result.data) {
@@ -75,15 +72,18 @@ export const RedactToolClient = () => {
           return;
         }
 
-        downloadBlob(result.data, `${file.name.replace(/\.pdf$/i, "")}_redacted.pdf`);
+        downloadBlob(result.data.blob, `${file.name.replace(/\.pdf$/i, "")}_redacted.pdf`);
         trackToolActivity({
           tool: "redact",
           fileName: file.name,
           filesProcessed: 1,
           inputBytes: file.size,
-          outputBytes: result.data.size
+          outputBytes: result.data.blob.size
         });
-        toast.success("Redacted PDF downloaded");
+        toast.success(
+          "Redacted PDF downloaded",
+          result.data.warnings.length ? result.data.warnings.join(" ") : "Redacted pages were flattened before export."
+        );
       }}
     />
   );

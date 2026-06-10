@@ -50,7 +50,7 @@ export const Hero = () => {
           </h1>
 
           <p className="text-base text-muted md:text-lg">
-            Merge, compress, redact, sign. Everything runs inside your own browser. Zero uploads, zero anxiety.
+            Merge, split, redact, sign. Everything runs inside your own browser. Zero uploads, zero anxiety.
           </p>
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">

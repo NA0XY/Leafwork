@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { withPdfLib } from "@/lib/pdf/engine";
+import { stripPdfMetadata } from "@/lib/pdf/security";
 import { PDFEngineError, type ProcessingResult } from "@/lib/pdf/types";
 
 export type PDFMetadata = {
@@ -47,17 +48,7 @@ export const stripMetadata = async (file: File): Promise<ProcessingResult<Blob>>
     const bytes = new Uint8Array(await file.arrayBuffer());
     const doc = await pdfLib.PDFDocument.load(bytes);
 
-    doc.setTitle("");
-    doc.setAuthor("");
-    doc.setSubject("");
-    doc.setKeywords([]);
-    doc.setProducer("Leafwork");
-    doc.setCreator("Leafwork");
-
-    const metadataRef = doc.catalog.get(pdfLib.PDFName.of("Metadata"));
-    if (metadataRef) {
-      doc.catalog.delete(pdfLib.PDFName.of("Metadata"));
-    }
+    stripPdfMetadata(pdfLib, doc);
 
     const output = await doc.save({ useObjectStreams: true, addDefaultPage: false });
     return new Blob([output], { type: "application/pdf" });

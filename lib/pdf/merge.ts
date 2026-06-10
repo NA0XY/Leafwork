@@ -5,15 +5,65 @@ import { PDFEngineError, PDFEngineErrorCode, type ProcessingResult } from "@/lib
 
 type ProgressCallback = (percent: number) => void;
 
+export type MergePageRange = {
+  start: number;
+  end: number;
+};
+
+export type MergeSelection = {
+  fileIndex: number;
+  ranges?: MergePageRange[];
+};
+
 const createResult = <T>(data: T | null, error: PDFEngineError | null, startedAt: number): ProcessingResult<T> => ({
   data,
   error,
   durationMs: Math.max(0, Math.round(performance.now() - startedAt))
 });
 
+const normalizeSelections = (files: File[], selections: number[] | MergeSelection[]): MergeSelection[] => {
+  if (!selections.length) {
+    return files.map((_, fileIndex) => ({ fileIndex }));
+  }
+
+  if (typeof selections[0] === "number") {
+    return (selections as number[]).map((fileIndex) => ({ fileIndex }));
+  }
+
+  return selections as MergeSelection[];
+};
+
+const resolvePageIndices = (pageCount: number, ranges?: MergePageRange[]): number[] => {
+  if (!ranges?.length) {
+    return Array.from({ length: pageCount }, (_, index) => index);
+  }
+
+  const pageIndices: number[] = [];
+  const seen = new Set<number>();
+
+  for (const range of ranges) {
+    const start = Math.min(range.start, range.end);
+    const end = Math.max(range.start, range.end);
+
+    if (start < 1 || end > pageCount) {
+      throw new Error(`Page range ${start}-${end} is outside the ${pageCount} page document.`);
+    }
+
+    for (let page = start; page <= end; page += 1) {
+      if (seen.has(page)) {
+        throw new Error(`Page ${page} is included more than once in the merge range.`);
+      }
+      seen.add(page);
+      pageIndices.push(page - 1);
+    }
+  }
+
+  return pageIndices;
+};
+
 export const mergePDFs = async (
   files: File[],
-  order: number[],
+  selections: number[] | MergeSelection[],
   onProgress?: ProgressCallback
 ): Promise<ProcessingResult<Blob>> => {
   const startedAt = performance.now();
@@ -26,14 +76,15 @@ export const mergePDFs = async (
     );
   }
 
-  const indices = order.length > 0 ? order : files.map((_, index) => index);
+  const normalizedSelections = normalizeSelections(files, selections);
 
   return withPdfLib(async (pdfLib) => {
     const mergedDoc = await pdfLib.PDFDocument.create();
-    const fileProgressWeight = 100 / indices.length;
+    const fileProgressWeight = 100 / normalizedSelections.length;
 
-    for (let cursor = 0; cursor < indices.length; cursor += 1) {
-      const fileIndex = indices[cursor];
+    for (let cursor = 0; cursor < normalizedSelections.length; cursor += 1) {
+      const selection = normalizedSelections[cursor] as MergeSelection;
+      const fileIndex = selection.fileIndex;
       const file = files[fileIndex];
       if (!file) {
         continue;
@@ -55,7 +106,7 @@ export const mergePDFs = async (
       const sourceDoc = await pdfLib.PDFDocument.load(loadResult.data.bytes, {
         ignoreEncryption: true
       });
-      const pageIndices = sourceDoc.getPageIndices();
+      const pageIndices = resolvePageIndices(sourceDoc.getPageCount(), selection.ranges);
       const copiedPages = await mergedDoc.copyPages(sourceDoc, pageIndices);
 
       copiedPages.forEach((page) => {

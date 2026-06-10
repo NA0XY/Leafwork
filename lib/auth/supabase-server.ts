@@ -24,8 +24,8 @@ const getSupabaseEnv = (): { url: string; anonKey: string } => {
   return { url, anonKey };
 };
 
-export const getSupabaseServerClient = () => {
-  const cookieStore = cookies();
+export const getSupabaseServerClient = async () => {
+  const cookieStore = await cookies();
   const { url, anonKey } = getSupabaseEnv();
 
   return createServerClient(url, anonKey, {
@@ -44,7 +44,7 @@ export const getSupabaseServerClient = () => {
 };
 
 export const getSession = async (): Promise<Session | null> => {
-  const supabase = getSupabaseServerClient();
+  const supabase = await getSupabaseServerClient();
   const { data, error } = await supabase.auth.getSession();
   if (error) {
     logger.error("auth.server.get_session_failed", {
@@ -62,7 +62,7 @@ export const getSession = async (): Promise<Session | null> => {
 };
 
 export const getUser = async (): Promise<User | null> => {
-  const supabase = getSupabaseServerClient();
+  const supabase = await getSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
   if (error) {
     if (error.message !== "Auth session missing!") {

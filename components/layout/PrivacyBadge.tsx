@@ -32,11 +32,11 @@ export const PrivacyBadge = () => {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-green-400" />
           </span>
-          All processing happens locally in your browser - zero uploads
+          Core PDF processing happens locally in your browser - zero file uploads
         </p>
 
         <div className="flex items-center gap-2">
-          <Link href="/about#privacy" className="underline underline-offset-2">
+          <Link href="/privacy" className="underline underline-offset-2">
             Learn more
           </Link>
           <button

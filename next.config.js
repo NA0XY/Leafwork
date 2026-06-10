@@ -4,6 +4,13 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 });
 
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://leafworkpdf.vercel.app";
+const githubUrl = process.env.NEXT_PUBLIC_GITHUB_URL ?? "https://github.com/NA0XY/Leafwork";
+const isProduction = process.env.NODE_ENV === "production";
+const vercelCommitSha = process.env.VERCEL_GIT_COMMIT_SHA;
+const scriptSources = ["'self'", "https://va.vercel-scripts.com"];
+const developmentScriptSources = [...scriptSources, "'unsafe-eval'", "'unsafe-inline'"];
+const cspScriptSources = isProduction ? scriptSources : developmentScriptSources;
+const cspScriptElementSources = isProduction ? scriptSources : developmentScriptSources;
 
 const securityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "on" },
@@ -22,12 +29,17 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com",
+      `script-src ${cspScriptSources.join(" ")}`,
+      `script-src-elem ${cspScriptElementSources.join(" ")}`,
+      "script-src-attr 'none'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob:",
       "connect-src 'self' https://*.supabase.co https://api.groq.com https://*.upstash.io wss://*.supabase.co",
       "worker-src 'self' blob:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
       "frame-ancestors 'none'"
     ].join("; ")
   }
@@ -36,14 +48,15 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ["pdfjs-dist"],
+  serverExternalPackages: ["pdf-lib"],
   experimental: {
-    serverComponentsExternalPackages: ["pdf-lib"],
     optimizePackageImports: ["lucide-react", "pdfjs-dist"]
   },
   env: {
-    NEXT_PUBLIC_BASE_URL: baseUrl
+    NEXT_PUBLIC_BASE_URL: baseUrl,
+    NEXT_PUBLIC_GITHUB_URL: githubUrl
   },
-  generateBuildId: async () => process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 8) ?? "dev-build",
+  ...(vercelCommitSha ? { generateBuildId: async () => vercelCommitSha.slice(0, 8) } : {}),
   images: {
     formats: ["image/avif", "image/webp"],
     unoptimized: false,
@@ -62,10 +75,6 @@ const nextConfig = {
           { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" }
         ]
-      },
-      {
-        source: "/_next/static/(.*)",
-        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }]
       }
     ];
   },
