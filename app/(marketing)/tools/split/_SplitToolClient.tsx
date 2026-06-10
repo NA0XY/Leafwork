@@ -4,6 +4,7 @@ import JSZip from "jszip";
 import { useEffect, useMemo, useState } from "react";
 
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { ReplaceFileDropTarget } from "@/components/tools/ReplaceFileDropTarget";
 import { ZoomablePreview } from "@/components/tools/ZoomablePreview";
 import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
@@ -113,6 +114,12 @@ export const SplitToolClient = () => {
   const rangeValid = useMemo(() => rangesAreValid(ranges, pageCount), [pageCount, ranges]);
   const extractList = useMemo(() => Array.from(selectedPages.values()).sort((a, b) => a - b).map((page) => page + 1), [selectedPages]);
 
+  const loadFile = async (next: File) => {
+    setFile(next);
+    setBytes(new Uint8Array(await next.arrayBuffer()));
+    setThumbnails([]);
+  };
+
   const downloadSplitOutputs = async (outputs: SplitOutput[], zipName: string, sourceFileName: string, inputBytes: number) => {
     let outputBytes = 0;
 
@@ -153,8 +160,7 @@ export const SplitToolClient = () => {
           }
 
           void (async () => {
-            setFile(next);
-            setBytes(new Uint8Array(await next.arrayBuffer()));
+            await loadFile(next);
           })();
         }}
       />
@@ -162,7 +168,7 @@ export const SplitToolClient = () => {
   }
 
   return (
-    <div className="space-y-4">
+    <ReplaceFileDropTarget onFile={loadFile}>
       <FileInfoCard
         file={file}
         bytes={bytes}
@@ -348,6 +354,6 @@ export const SplitToolClient = () => {
           Split and Download
         </Button>
       </section>
-    </div>
+    </ReplaceFileDropTarget>
   );
 };

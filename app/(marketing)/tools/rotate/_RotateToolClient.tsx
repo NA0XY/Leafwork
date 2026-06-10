@@ -4,6 +4,7 @@ import { RotateCcw, RotateCw, Repeat } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { ReplaceFileDropTarget } from "@/components/tools/ReplaceFileDropTarget";
 import { ZoomablePreview } from "@/components/tools/ZoomablePreview";
 import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
@@ -98,6 +99,14 @@ export const RotateToolClient = () => {
     }));
   }, [pageCount, pageRotationPlan, rotation, selectedPages, selectionMode]);
 
+  const loadFile = async (next: File) => {
+    setFile(next);
+    setBytes(new Uint8Array(await next.arrayBuffer()));
+    setThumbnails([]);
+    setSelectedPages(new Set());
+    setPageRotationPlan(new Map());
+  };
+
   if (!file || !bytes) {
     return (
       <DropZone
@@ -109,8 +118,7 @@ export const RotateToolClient = () => {
           }
 
           void (async () => {
-            setFile(next);
-            setBytes(new Uint8Array(await next.arrayBuffer()));
+            await loadFile(next);
           })();
         }}
       />
@@ -118,7 +126,7 @@ export const RotateToolClient = () => {
   }
 
   return (
-    <div className="space-y-4">
+    <ReplaceFileDropTarget onFile={loadFile}>
       <FileInfoCard
         file={file}
         bytes={bytes}
@@ -306,6 +314,6 @@ export const RotateToolClient = () => {
           Rotate and Download
         </Button>
       </section>
-    </div>
+    </ReplaceFileDropTarget>
   );
 };

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { ReplaceFileDropTarget } from "@/components/tools/ReplaceFileDropTarget";
 import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -35,13 +36,22 @@ export const PdfToWordToolClient = () => {
 
   const charCount = useMemo(() => markdown.length, [markdown.length]);
 
+  const loadFile = (next: File) => {
+    setFile(next);
+    setMarkdown("");
+    setProgress(0);
+    setError(null);
+    setTruncated(false);
+  };
+
   return (
     <div className="space-y-4">
-      {!file ? <DropZone multiple={false} onFiles={(files) => setFile(files[0] ?? null)} /> : null}
+      {!file ? <DropZone multiple={false} onFiles={(files) => files[0] && loadFile(files[0])} /> : null}
 
       {file ? (
-        <section className="space-y-4">
-          <FileInfoCard file={file} onRemove={() => setFile(null)} />
+        <ReplaceFileDropTarget onFile={loadFile}>
+          <section className="space-y-4">
+            <FileInfoCard file={file} onRemove={() => setFile(null)} />
 
           <div className="rounded-brutal border-2 border-ink bg-surface p-4 shadow-brutal">
             <Button
@@ -199,7 +209,8 @@ export const PdfToWordToolClient = () => {
               </pre>
             </section>
           ) : null}
-        </section>
+          </section>
+        </ReplaceFileDropTarget>
       ) : null}
 
       {error ? <p className="text-sm text-red-900">{error}</p> : null}

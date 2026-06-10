@@ -2,7 +2,7 @@
 
 import JSZip from "jszip";
 import { ArrowDown, ArrowUp, Download, FileArchive, FileText, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 
 import { ZoomablePreview } from "@/components/tools/ZoomablePreview";
 import { Button } from "@/components/ui/Button";
@@ -10,6 +10,7 @@ import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
 import { imagesToIndividualPdfs, imagesToPdf, type ImagePdfLayout } from "@/lib/pdf/images-to-pdf";
 import { trackToolActivity } from "@/lib/utils/activity";
+import { cn } from "@/lib/utils/cn";
 import { downloadBlob } from "@/lib/utils/file";
 import { formatBytes, truncateFilename } from "@/lib/utils/format";
 
@@ -34,12 +35,18 @@ const makeItem = (file: File, index: number): ImageItem => ({
   previewUrl: URL.createObjectURL(file)
 });
 
+const isSupportedImage = (file: File): boolean => {
+  const type = file.type.toLowerCase();
+  return type === "image/png" || type === "image/jpeg" || /\.(png|jpe?g)$/i.test(file.name);
+};
+
 export const ImagesToPdfToolClient = () => {
   const toast = useToast();
   const [items, setItems] = useState<ImageItem[]>([]);
   const [layout, setLayout] = useState<ImagePdfLayout>("fit-page");
   const [downloadMode, setDownloadMode] = useState<DownloadMode>("combined");
   const [busy, setBusy] = useState(false);
+  const [isDropActive, setIsDropActive] = useState(false);
   const addInputRef = useRef<HTMLInputElement | null>(null);
   const itemsRef = useRef<ImageItem[]>([]);
 
@@ -60,18 +67,49 @@ export const ImagesToPdfToolClient = () => {
     });
   };
 
-  const addFiles = (files: File[]) => {
+  const addFiles = useCallback((files: File[]) => {
     setItems((current) => [...current, ...files.map(makeItem)]);
-  };
+  }, []);
+
+  const appendImageFiles = useCallback(
+    (incoming: File[]) => {
+      const selected = incoming.filter(isSupportedImage);
+      const skipped = incoming.length - selected.length;
+
+      if (selected.length) {
+        addFiles(selected);
+      }
+
+      if (skipped) {
+        toast.error("Some files were skipped", "Images to PDF accepts PNG and JPG files only.");
+      }
+    },
+    [addFiles, toast]
+  );
 
   const handleAddInput = (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
-    const selected = Array.from(input.files ?? []).filter((file) => /\.(png|jpe?g)$/i.test(file.name) || file.type === "image/png" || file.type === "image/jpeg");
-    if (selected.length) {
-      addFiles(selected);
-    }
+    appendImageFiles(Array.from(input.files ?? []));
     input.value = "";
   };
+
+  const handleImageDrop = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDropActive(false);
+      appendImageFiles(Array.from(event.dataTransfer.files ?? []));
+    },
+    [appendImageFiles]
+  );
+
+  const handleDragLeave = useCallback((event: DragEvent<HTMLDivElement>) => {
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    setIsDropActive(false);
+  }, []);
 
   const removeItem = (id: string) => {
     setItems((current) => {
@@ -134,7 +172,16 @@ export const ImagesToPdfToolClient = () => {
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      className="space-y-4"
+      onDragOver={(event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        setIsDropActive(true);
+      }}
+      onDragLeave={handleDragLeave}
+      onDrop={handleImageDrop}
+    >
       <section className="space-y-4 rounded-brutal border-2 border-ink bg-surface p-4 shadow-brutal">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -157,7 +204,13 @@ export const ImagesToPdfToolClient = () => {
           </Button>
         </div>
 
-        <div className="flex justify-end">
+        <div
+          className={cn(
+            "flex flex-col gap-2 rounded-brutal border-2 border-dashed border-ink bg-paper p-3 transition-colors sm:flex-row sm:items-center sm:justify-between",
+            isDropActive && "border-primary bg-green-100"
+          )}
+        >
+          <p className="text-sm font-semibold text-muted">Drop more PNG or JPG images here.</p>
           <Button type="button" size="sm" variant="secondary" onClick={() => addInputRef.current?.click()}>
             Add more images
           </Button>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { ReplaceFileDropTarget } from "@/components/tools/ReplaceFileDropTarget";
 import { RedactPanel, type RedactionArea } from "@/components/tools/RedactPanel";
 import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
@@ -15,6 +16,11 @@ export const RedactToolClient = () => {
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
   const toast = useToast();
 
+  const loadFile = async (next: File) => {
+    setFile(next);
+    setBytes(new Uint8Array(await next.arrayBuffer()));
+  };
+
   if (!file || !bytes) {
     return (
       <DropZone
@@ -26,8 +32,7 @@ export const RedactToolClient = () => {
           }
 
           void (async () => {
-            setFile(next);
-            setBytes(new Uint8Array(await next.arrayBuffer()));
+            await loadFile(next);
           })();
         }}
       />
@@ -35,14 +40,15 @@ export const RedactToolClient = () => {
   }
 
   return (
-    <RedactPanel
-      file={file}
-      bytes={bytes}
-      onRemoveFile={() => {
-        setFile(null);
-        setBytes(null);
-      }}
-      onApply={async (areas: RedactionArea[]) => {
+    <ReplaceFileDropTarget onFile={loadFile}>
+      <RedactPanel
+        file={file}
+        bytes={bytes}
+        onRemoveFile={() => {
+          setFile(null);
+          setBytes(null);
+        }}
+        onApply={async (areas: RedactionArea[]) => {
         if (!areas.length) {
           toast.info("No redactions", "Draw at least one redaction area first");
           return;
@@ -84,7 +90,8 @@ export const RedactToolClient = () => {
           "Redacted PDF downloaded",
           result.data.warnings.length ? result.data.warnings.join(" ") : "Redacted pages were flattened before export."
         );
-      }}
-    />
+        }}
+      />
+    </ReplaceFileDropTarget>
   );
 };

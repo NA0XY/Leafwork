@@ -6,6 +6,7 @@ import { PDFCanvas } from "@/components/canvas/PDFCanvas";
 import { SignaturePanel } from "@/components/tools/SignaturePanel";
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
 import { PageNavigator } from "@/components/tools/PageNavigator";
+import { ReplaceFileDropTarget } from "@/components/tools/ReplaceFileDropTarget";
 import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
@@ -75,6 +76,15 @@ export const SignToolClient = () => {
     []
   );
 
+  const loadFile = async (next: File) => {
+    setFile(next);
+    setBytes(new Uint8Array(await next.arrayBuffer()));
+    setSignatureData(null);
+    setPageNumber(1);
+    setPlacement({ x: 0.35, y: 0.45, width: 0.3, height: 0.12 });
+    setHasPlacedSignature(false);
+  };
+
   if (!file || !bytes) {
     return (
       <DropZone
@@ -85,9 +95,7 @@ export const SignToolClient = () => {
             return;
           }
           void (async () => {
-            setFile(next);
-            setBytes(new Uint8Array(await next.arrayBuffer()));
-            setHasPlacedSignature(false);
+            await loadFile(next);
           })();
         }}
       />
@@ -95,7 +103,7 @@ export const SignToolClient = () => {
   }
 
   return (
-    <div className="space-y-4">
+    <ReplaceFileDropTarget onFile={loadFile}>
       <FileInfoCard
         file={file}
         bytes={bytes}
@@ -288,6 +296,6 @@ export const SignToolClient = () => {
           </Button>
         </div>
       </section>
-    </div>
+    </ReplaceFileDropTarget>
   );
 };

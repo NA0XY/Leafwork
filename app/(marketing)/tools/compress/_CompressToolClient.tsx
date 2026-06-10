@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { CompressPanel } from "@/components/tools/CompressPanel";
+import { ReplaceFileDropTarget } from "@/components/tools/ReplaceFileDropTarget";
 import { DropZone } from "@/components/ui/DropZone";
 import { usePDFEngine } from "@/hooks/usePDFEngine";
 
@@ -13,20 +14,22 @@ export const CompressToolClient = () => {
   return !file ? (
     <DropZone onFiles={(files) => setFile(files[0] ?? null)} multiple={false} />
   ) : (
-    <CompressPanel
-      file={file}
-      progress={pdf.progress}
-      isProcessing={pdf.isProcessing}
-      downloadComplete={pdf.downloadComplete}
-      error={pdf.error}
-      onRemoveFile={() => setFile(null)}
-      onCompress={async (targetKB, stripMetadata, allowAggressiveCompression, grayscale, preserveSelectableText) =>
-        pdf.compress(file, targetKB, {
-          stripMetadata,
-          allowRasterization: allowAggressiveCompression,
-          keepTextSharp: preserveSelectableText,
-          grayscale
-        })}
-    />
+    <ReplaceFileDropTarget onFile={setFile}>
+      <CompressPanel
+        file={file}
+        progress={pdf.progress}
+        isProcessing={pdf.isProcessing}
+        downloadComplete={pdf.downloadComplete}
+        error={pdf.error}
+        onRemoveFile={() => setFile(null)}
+        onCompress={async (targetKB, stripMetadata, allowAggressiveCompression, grayscale, preserveSelectableText) =>
+          pdf.compress(file, targetKB, {
+            stripMetadata,
+            allowRasterization: allowAggressiveCompression,
+            keepTextSharp: preserveSelectableText,
+            grayscale
+          })}
+      />
+    </ReplaceFileDropTarget>
   );
 };

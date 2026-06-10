@@ -5,6 +5,7 @@ import { Download, Image as ImageIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { ReplaceFileDropTarget } from "@/components/tools/ReplaceFileDropTarget";
 import { ZoomablePreview } from "@/components/tools/ZoomablePreview";
 import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
@@ -97,6 +98,13 @@ export const PdfToImagesToolClient = () => {
 
   const selectedList = useMemo(() => Array.from(selectedPages.values()).sort((a, b) => a - b), [selectedPages]);
 
+  const loadFile = async (next: File) => {
+    setFile(next);
+    setBytes(new Uint8Array(await next.arrayBuffer()));
+    setThumbnails([]);
+    setResults([]);
+  };
+
   if (!file || !bytes) {
     return (
       <DropZone
@@ -108,9 +116,7 @@ export const PdfToImagesToolClient = () => {
           }
 
           void (async () => {
-            setFile(next);
-            setBytes(new Uint8Array(await next.arrayBuffer()));
-            setResults([]);
+            await loadFile(next);
           })();
         }}
       />
@@ -118,7 +124,7 @@ export const PdfToImagesToolClient = () => {
   }
 
   return (
-    <div className="space-y-4">
+    <ReplaceFileDropTarget onFile={loadFile}>
       <FileInfoCard
         file={file}
         bytes={bytes}
@@ -324,6 +330,6 @@ export const PdfToImagesToolClient = () => {
           </div>
         </section>
       ) : null}
-    </div>
+    </ReplaceFileDropTarget>
   );
 };
