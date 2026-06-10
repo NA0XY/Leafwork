@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { getToolFeatureState } from "@/lib/config/features";
+import { GUIDE_ENTRIES } from "@/lib/utils/guides";
 import { BASE_URL, type ToolSlug } from "@/lib/utils/seo";
 
 type SitemapEntry = {
@@ -12,6 +13,7 @@ type SitemapEntry = {
 const staticEntries: SitemapEntry[] = [
   { route: "/", priority: 1.0, changeFrequency: "weekly" },
   { route: "/tools", priority: 0.9, changeFrequency: "weekly" },
+  { route: "/guides", priority: 0.8, changeFrequency: "weekly" },
   { route: "/about", priority: 0.5, changeFrequency: "monthly" },
   { route: "/privacy", priority: 0.45, changeFrequency: "monthly" },
   { route: "/security", priority: 0.45, changeFrequency: "monthly" },
@@ -39,7 +41,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
   const entries = [
     ...staticEntries,
-    ...toolEntries.filter((entry) => getToolFeatureState(entry.slug).enabled)
+    ...toolEntries.filter((entry) => getToolFeatureState(entry.slug).enabled),
+    ...GUIDE_ENTRIES.map((guide) => ({
+      route: `/guides/${guide.slug}`,
+      priority: 0.7,
+      changeFrequency: "monthly" as const
+    }))
   ];
 
   return entries.map(({ route, priority, changeFrequency }) => ({

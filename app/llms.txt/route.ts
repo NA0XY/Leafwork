@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getToolFeatureState } from "@/lib/config/features";
+import { GUIDE_ENTRIES } from "@/lib/utils/guides";
 import {
   BASE_URL,
   GITHUB_URL,
@@ -35,6 +36,8 @@ export function GET() {
     ? comingSoonTools.map((tool) => `- ${tool.name}: coming soon`).join("\n")
     : "- None";
 
+  const guides = GUIDE_ENTRIES.map((guide) => `- ${guide.h1}: ${BASE_URL}/guides/${guide.slug}`).join("\n");
+
   const body = `# Leafwork
 
 Leafwork is a free, local-first PDF toolkit for browser-based document workflows.
@@ -57,11 +60,15 @@ ${HOMEPAGE_FAQS.map((faq) => `### ${faq.q}\n${faq.a}`).join("\n\n")}
 ## Available Tools
 ${availableTools}
 
+## PDF Guides
+${guides}
+
 ## Coming Soon or Disabled Tools
 ${unavailableTools}
 
 ## Important URLs
 - Tools directory: ${BASE_URL}/tools
+- PDF guides: ${BASE_URL}/guides
 - Privacy policy: ${BASE_URL}/privacy
 - Terms of service: ${BASE_URL}/terms
 - Security model: ${BASE_URL}/security

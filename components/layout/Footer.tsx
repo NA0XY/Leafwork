@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PrivacyChoicesButton } from "@/components/layout/PrivacyChoicesButton";
+import { GUIDE_NAV_ITEMS } from "@/lib/utils/guides";
 import { getAvailableToolNavItems } from "@/lib/utils/seo";
 
 export const Footer = () => {
@@ -32,6 +33,24 @@ export const Footer = () => {
           <Link href="/tools" className="inline-flex rounded-brutal border-2 border-ink bg-paper px-3 py-2 text-sm font-semibold md:hidden">
             See all tools
           </Link>
+
+          <div className="pt-4">
+            <p className="text-sm font-bold uppercase tracking-widest text-muted">Guides</p>
+            <div className="mt-2 grid gap-2 text-sm md:grid-cols-1">
+              {GUIDE_NAV_ITEMS.slice(0, 3).map((guide) => (
+                <Link
+                  key={guide.href}
+                  href={guide.href}
+                  className="flex min-h-10 items-center rounded-brutal border-2 border-ink bg-paper px-3 py-2 font-semibold leading-tight hover:bg-green-100"
+                >
+                  {guide.anchorText}
+                </Link>
+              ))}
+            </div>
+            <Link href="/guides" className="mt-2 inline-flex rounded-brutal border-2 border-ink bg-paper px-3 py-2 text-sm font-semibold hover:bg-green-100">
+              See all PDF guides
+            </Link>
+          </div>
         </div>
 
         <div className="w-full max-w-72 space-y-3 text-sm lg:justify-self-end">
