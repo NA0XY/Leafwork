@@ -25,7 +25,7 @@ export const Footer = () => {
                 href={tool.href}
                 className="flex min-h-10 items-center rounded-brutal border-2 border-ink bg-paper px-3 py-2 font-semibold leading-tight hover:bg-green-100"
               >
-                {tool.name}
+                {tool.anchorText}
               </Link>
             ))}
           </div>

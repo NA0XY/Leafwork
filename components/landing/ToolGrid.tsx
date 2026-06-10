@@ -32,7 +32,7 @@ type ToolCard = {
 const tools: ToolCard[] = [
   {
     slug: "merge",
-    title: "Merge",
+    title: "Merge PDF locally",
     href: "/tools/merge",
     description: "Combine multiple PDFs in custom order with drag-and-drop control.",
     badge: "Core",
@@ -40,7 +40,7 @@ const tools: ToolCard[] = [
   },
   {
     slug: "split",
-    title: "Split",
+    title: "Split PDF by range",
     href: "/tools/split",
     description: "Split by range, every N pages, or selected pages with ZIP export.",
     badge: "Core",
@@ -48,7 +48,7 @@ const tools: ToolCard[] = [
   },
   {
     slug: "compress",
-    title: "Compress",
+    title: "Compress PDF",
     href: "/tools/compress",
     description: "Target a smaller file size while monitoring output quality and readability.",
     badge: "Core",
@@ -56,7 +56,7 @@ const tools: ToolCard[] = [
   },
   {
     slug: "pdf-to-word",
-    title: "PDF to Word",
+    title: "Convert PDF to Word",
     href: "/tools/pdf-to-word",
     description: "Extract layout-aware text and export editable output with AI assistance.",
     badge: "AI",
@@ -64,7 +64,7 @@ const tools: ToolCard[] = [
   },
   {
     slug: "pdf-to-images",
-    title: "PDF to Images",
+    title: "Convert PDF to images",
     href: "/tools/pdf-to-images",
     description: "Convert selected pages to JPG or PNG with quality controls.",
     badge: "Export",
@@ -72,7 +72,7 @@ const tools: ToolCard[] = [
   },
   {
     slug: "images-to-pdf",
-    title: "Images to PDF",
+    title: "Convert images to PDF",
     href: "/tools/images-to-pdf",
     description: "Convert multiple PNG or JPG images into one PDF or separate PDFs.",
     badge: "Export",
@@ -80,7 +80,7 @@ const tools: ToolCard[] = [
   },
   {
     slug: "watermark",
-    title: "Watermark",
+    title: "Watermark PDF",
     href: "/tools/watermark",
     description: "Add text or image watermarks with live page placement preview.",
     badge: "Edit",
@@ -88,7 +88,7 @@ const tools: ToolCard[] = [
   },
   {
     slug: "sign",
-    title: "Sign",
+    title: "Sign PDF",
     href: "/tools/sign",
     description: "Draw, type, or upload signatures and place them precisely on any page.",
     badge: "Edit",
@@ -96,7 +96,7 @@ const tools: ToolCard[] = [
   },
   {
     slug: "redact",
-    title: "Redact",
+    title: "Redact PDF",
     href: "/tools/redact",
     description: "Redact sensitive content with visual page targeting and permanent output.",
     badge: "Secure",
@@ -104,7 +104,7 @@ const tools: ToolCard[] = [
   },
   {
     slug: "rotate",
-    title: "Rotate",
+    title: "Rotate PDF pages",
     href: "/tools/rotate",
     description: "Rotate all pages or assign different rotation angles to selected pages.",
     badge: "Edit",
@@ -112,7 +112,7 @@ const tools: ToolCard[] = [
   },
   {
     slug: "metadata-strip",
-    title: "Metadata Strip",
+    title: "Remove PDF metadata",
     href: "/tools/metadata-strip",
     description: "Remove hidden author and producer metadata before sharing files.",
     badge: "Secure",
@@ -120,7 +120,7 @@ const tools: ToolCard[] = [
   },
   {
     slug: "summarize",
-    title: "Summarize",
+    title: "Summarize PDF",
     href: "/tools/summarize",
     description: "Generate AI summaries with key points, figures, and action items.",
     badge: "AI",

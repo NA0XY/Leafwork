@@ -92,6 +92,7 @@ export type ToolNavItem = {
   slug: ToolSlug;
   name: string;
   href: string;
+  anchorText: string;
 };
 
 type ToolSEOEntry = {
@@ -118,6 +119,22 @@ const TOOL_NAV_NAMES: Record<ToolSlug, string> = {
   rotate: "Rotate PDF",
   "metadata-strip": "Remove Metadata",
   summarize: "Summarize PDF"
+};
+
+const TOOL_LINK_ANCHORS: Record<ToolSlug, string> = {
+  sandbox: "Open the browser-local PDF sandbox",
+  merge: "Merge PDF files locally",
+  split: "Split PDF pages by range",
+  compress: "Compress PDF files - coming soon",
+  "pdf-to-word": "Convert PDF to Word - coming soon",
+  "pdf-to-images": "Convert PDF pages to images",
+  "images-to-pdf": "Convert images to PDF",
+  watermark: "Add a watermark to PDF files",
+  sign: "Sign PDF files in the browser",
+  redact: "Redact sensitive PDF content",
+  rotate: "Rotate PDF pages locally",
+  "metadata-strip": "Remove hidden PDF metadata",
+  summarize: "Summarize PDF files - coming soon"
 };
 
 export const TOOL_SEO_DATA: Record<ToolSlug, ToolSEOEntry> = {
@@ -437,7 +454,8 @@ const SCHEMA_TOOL_ORDER: ToolSlug[] = ["sandbox", ...TOOL_NAV_ORDER];
 export const TOOL_NAV_ITEMS: ToolNavItem[] = TOOL_NAV_ORDER.map((slug) => ({
   slug,
   name: TOOL_NAV_NAMES[slug],
-  href: `/tools/${slug}`
+  href: `/tools/${slug}`,
+  anchorText: TOOL_LINK_ANCHORS[slug]
 }));
 
 export const getAvailableToolNavItems = (): ToolNavItem[] =>
@@ -447,12 +465,15 @@ const getAvailableSchemaToolItems = (): ToolNavItem[] =>
   SCHEMA_TOOL_ORDER.filter((slug) => getToolFeatureState(slug).enabled).map((slug) => ({
     slug,
     name: TOOL_NAV_NAMES[slug],
-    href: `/tools/${slug}`
+    href: `/tools/${slug}`,
+    anchorText: TOOL_LINK_ANCHORS[slug]
   }));
 
 export const getToolFaqs = (toolSlug: ToolSlug): ToolFAQ[] => TOOL_SEO_DATA[toolSlug].faq;
 
 export const getToolAnswerBlock = (toolSlug: ToolSlug): ToolAnswerBlock => TOOL_SEO_DATA[toolSlug].answerBlock;
+
+export const getToolAnchorText = (toolSlug: ToolSlug): string => TOOL_LINK_ANCHORS[toolSlug];
 
 export const getRelatedToolLinks = (currentToolSlug: ToolSlug, limit = 6): ToolNavItem[] =>
   TOOL_NAV_ITEMS.filter((item) => item.slug !== currentToolSlug)

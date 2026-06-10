@@ -10,6 +10,7 @@ import {
   generateFAQSchema,
   generateSoftwareAppSchema,
   getToolAnswerBlock,
+  getToolAnchorText,
   getRelatedToolLinks,
   getToolFaqs,
   type ToolFAQ,
@@ -112,6 +113,40 @@ export const ToolPageShell = ({ toolTitle, description, faqs, toolSlug, children
         </section>
       ) : null}
 
+      {answerBlock && directAnswer ? (
+        <section aria-labelledby={`${toolSlug}-tool-guide`} className="space-y-3 rounded-brutal border-2 border-ink bg-surface p-4 shadow-brutal">
+          <div className="space-y-1">
+            <h2 id={`${toolSlug}-tool-guide`} className="text-2xl font-bold">
+              How {toolTitle} works
+            </h2>
+            <p className="max-w-3xl text-sm leading-relaxed text-muted">{directAnswer}</p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <article className="rounded-brutal border-2 border-ink bg-paper p-3">
+              <h3 className="font-bold">What it does</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted">{answerBlock.facts[0]}</p>
+            </article>
+            <article className="rounded-brutal border-2 border-ink bg-paper p-3">
+              <h3 className="font-bold">Best for</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted">{answerBlock.bestFor}</p>
+            </article>
+            <article className="rounded-brutal border-2 border-ink bg-paper p-3">
+              <h3 className="font-bold">How it works</h3>
+              <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm leading-relaxed text-muted">
+                {answerBlock.facts.map((fact) => (
+                  <li key={fact}>{fact}</li>
+                ))}
+              </ol>
+            </article>
+            <article className="rounded-brutal border-2 border-ink bg-paper p-3">
+              <h3 className="font-bold">Privacy</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted">{answerBlock.privacyNote}</p>
+            </article>
+          </div>
+        </section>
+      ) : null}
+
       {toolSlug ? (
         <section className="space-y-3">
           <h2 className="text-2xl font-bold">Explore More Tools</h2>
@@ -139,7 +174,7 @@ export const ToolPageShell = ({ toolTitle, description, faqs, toolSlug, children
                   href={tool.href}
                   className="rounded-brutal border-2 border-ink bg-paper px-3 py-2 text-sm font-semibold hover:bg-green-100"
                 >
-                  {tool.name}
+                  {getToolAnchorText(tool.slug)}
                 </Link>
               );
             })}

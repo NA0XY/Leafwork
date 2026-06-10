@@ -7,13 +7,19 @@ import {
   HOMEPAGE_FAQS,
   TOOL_NAV_ITEMS,
   TRUST_AND_PRIVACY_FACTS,
+  getToolAnchorText,
   type ToolNavItem
 } from "@/lib/utils/seo";
 
 export const dynamic = "force-static";
 
 const crawlerToolItems: ToolNavItem[] = [
-  { slug: "sandbox", name: "PDF Sandbox", href: "/tools/sandbox" },
+  {
+    slug: "sandbox",
+    name: "PDF Sandbox",
+    href: "/tools/sandbox",
+    anchorText: getToolAnchorText("sandbox")
+  },
   ...TOOL_NAV_ITEMS.filter((tool) => tool.slug !== "sandbox")
 ];
 
@@ -22,7 +28,7 @@ const comingSoonTools = crawlerToolItems.filter((tool) => !getToolFeatureState(t
 export function GET() {
   const availableTools = crawlerToolItems
     .filter((tool) => getToolFeatureState(tool.slug).enabled)
-    .map((tool) => `- ${tool.name}: ${BASE_URL}${tool.href}`)
+    .map((tool) => `- ${tool.anchorText}: ${BASE_URL}${tool.href}`)
     .join("\n");
 
   const unavailableTools = comingSoonTools.length
