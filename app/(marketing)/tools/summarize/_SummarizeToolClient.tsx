@@ -4,6 +4,7 @@ import { ClipboardCopy, Download } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { ReplaceFileDropTarget } from "@/components/tools/ReplaceFileDropTarget";
 import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -164,6 +165,15 @@ export const SummarizeToolClient = () => {
   const actionItems = parsedSummary.actions;
   const overview = parsedSummary.overview;
 
+  const loadFile = (next: File) => {
+    setFile(next);
+    setSummary("");
+    setProgress(0);
+    setError(null);
+    setCharCount(0);
+    setWasTruncated(false);
+  };
+
   useEffect(() => {
     if (!file) {
       blockedTrackedRef.current = false;
@@ -180,9 +190,9 @@ export const SummarizeToolClient = () => {
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <div className="space-y-4">
         {!file ? (
-          <DropZone multiple={false} onFiles={(files) => setFile(files[0] ?? null)} />
+          <DropZone multiple={false} onFiles={(files) => files[0] && loadFile(files[0])} />
         ) : (
-          <>
+          <ReplaceFileDropTarget onFile={loadFile}>
             <FileInfoCard file={file} onRemove={() => setFile(null)} />
 
             {!isAuthenticated ? (
@@ -249,7 +259,7 @@ export const SummarizeToolClient = () => {
                 <ProgressBar value={progress} animated showLabel />
               </section>
             )}
-          </>
+          </ReplaceFileDropTarget>
         )}
 
         {error ? <p className="text-sm text-red-900">{error}</p> : null}

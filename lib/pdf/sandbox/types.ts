@@ -11,6 +11,7 @@ export type SandboxFile = {
   pageCount: number;
   size: number;
   kind: SandboxFileKind;
+  sourceFile?: File;
 };
 
 export type SandboxPageRef = {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { ReplaceFileDropTarget } from "@/components/tools/ReplaceFileDropTarget";
 import { RedactPanel, type RedactionArea } from "@/components/tools/RedactPanel";
 import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
@@ -9,11 +10,45 @@ import { withPdfLib } from "@/lib/pdf/engine";
 import { secureRedactPdfBytes } from "@/lib/pdf/security";
 import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
+import { useSandboxStore } from "@/store/sandbox-store";
 
 export const RedactToolClient = () => {
   const [file, setFile] = useState<File | null>(null);
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
+  const [savingToSandbox, setSavingToSandbox] = useState(false);
+  const addGeneratedPdf = useSandboxStore((state) => state.addGeneratedPdf);
   const toast = useToast();
+
+  const loadFile = async (next: File) => {
+    setFile(next);
+    setBytes(new Uint8Array(await next.arrayBuffer()));
+    setSavingToSandbox(false);
+  };
+
+  const buildRedactedPdf = async (areas: RedactionArea[]) => {
+    if (!bytes) {
+      return null;
+    }
+
+    return withPdfLib(async (pdfLib) => {
+      const output = await secureRedactPdfBytes(
+        pdfLib,
+        bytes,
+        areas.map((area) => ({
+          pageNumber: area.page,
+          x: area.x,
+          y: area.y,
+          width: area.width,
+          height: area.height
+        }))
+      );
+
+      return {
+        blob: new Blob([output.bytes], { type: "application/pdf" }),
+        warnings: output.warnings
+      };
+    });
+  };
 
   if (!file || !bytes) {
     return (
@@ -26,8 +61,7 @@ export const RedactToolClient = () => {
           }
 
           void (async () => {
-            setFile(next);
-            setBytes(new Uint8Array(await next.arrayBuffer()));
+            await loadFile(next);
           })();
         }}
       />
@@ -35,56 +69,67 @@ export const RedactToolClient = () => {
   }
 
   return (
-    <RedactPanel
-      file={file}
-      bytes={bytes}
-      onRemoveFile={() => {
-        setFile(null);
-        setBytes(null);
-      }}
-      onApply={async (areas: RedactionArea[]) => {
-        if (!areas.length) {
-          toast.info("No redactions", "Draw at least one redaction area first");
-          return;
-        }
+    <ReplaceFileDropTarget onFile={loadFile}>
+      <RedactPanel
+        file={file}
+        bytes={bytes}
+        onRemoveFile={() => {
+          setFile(null);
+          setBytes(null);
+          setSavingToSandbox(false);
+        }}
+        onApply={async (areas: RedactionArea[]) => {
+          if (!areas.length) {
+            toast.info("No redactions", "Draw at least one redaction area first");
+            return;
+          }
 
-        const result = await withPdfLib(async (pdfLib) => {
-          const output = await secureRedactPdfBytes(
-            pdfLib,
-            bytes,
-            areas.map((area) => ({
-              pageNumber: area.page,
-              x: area.x,
-              y: area.y,
-              width: area.width,
-              height: area.height
-            }))
+          const result = await buildRedactedPdf(areas);
+
+          if (!result?.data) {
+            toast.error("Redaction failed", result?.error?.message ?? "Unable to apply redactions");
+            return;
+          }
+
+          downloadBlob(result.data.blob, `${file.name.replace(/\.pdf$/i, "")}_redacted.pdf`);
+          trackToolActivity({
+            tool: "redact",
+            fileName: file.name,
+            filesProcessed: 1,
+            inputBytes: file.size,
+            outputBytes: result.data.blob.size
+          });
+          toast.success(
+            "Redacted PDF downloaded",
+            result.data.warnings.length ? result.data.warnings.join(" ") : "Redacted pages were flattened before export."
           );
+        }}
+        onSaveToSandbox={async (areas: RedactionArea[]) => {
+          if (!areas.length) {
+            toast.info("No redactions", "Draw at least one redaction area first");
+            return;
+          }
 
-          return {
-            blob: new Blob([output.bytes], { type: "application/pdf" }),
-            warnings: output.warnings
-          };
-        });
+          setSavingToSandbox(true);
+          try {
+            const result = await buildRedactedPdf(areas);
 
-        if (!result.data) {
-          toast.error("Redaction failed", result.error?.message ?? "Unable to apply redactions");
-          return;
-        }
+            if (!result?.data) {
+              toast.error("Redaction failed", result?.error?.message ?? "Unable to apply redactions");
+              return;
+            }
 
-        downloadBlob(result.data.blob, `${file.name.replace(/\.pdf$/i, "")}_redacted.pdf`);
-        trackToolActivity({
-          tool: "redact",
-          fileName: file.name,
-          filesProcessed: 1,
-          inputBytes: file.size,
-          outputBytes: result.data.blob.size
-        });
-        toast.success(
-          "Redacted PDF downloaded",
-          result.data.warnings.length ? result.data.warnings.join(" ") : "Redacted pages were flattened before export."
-        );
-      }}
-    />
+            await addGeneratedPdf(`${file.name.replace(/\.pdf$/i, "")}_redacted.pdf`, result.data.blob);
+            toast.success(
+              "Saved to Sandbox",
+              result.data.warnings.length ? result.data.warnings.join(" ") : "Redacted PDF is now in storage."
+            );
+          } finally {
+            setSavingToSandbox(false);
+          }
+        }}
+        savingToSandbox={savingToSandbox}
+      />
+    </ReplaceFileDropTarget>
   );
 };

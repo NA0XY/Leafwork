@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { ReplaceFileDropTarget } from "@/components/tools/ReplaceFileDropTarget";
 import { WatermarkPanel } from "@/components/tools/WatermarkPanel";
 import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
@@ -9,6 +10,7 @@ import { withPdfLib } from "@/lib/pdf/engine";
 import type { WatermarkPosition } from "@/lib/pdf/types";
 import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
+import { useSandboxStore } from "@/store/sandbox-store";
 
 const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
   const clean = hex.replace("#", "");
@@ -30,7 +32,17 @@ export const WatermarkToolClient = () => {
   const [progress, setProgress] = useState(0);
   const [downloadComplete, setDownloadComplete] = useState(false);
   const [appliedCount, setAppliedCount] = useState(0);
+  const [savingToSandbox, setSavingToSandbox] = useState(false);
+  const addGeneratedPdf = useSandboxStore((state) => state.addGeneratedPdf);
   const toast = useToast();
+
+  const loadFile = async (next: File) => {
+    setFile(next);
+    setBytes(new Uint8Array(await next.arrayBuffer()));
+    setAppliedCount(0);
+    setDownloadComplete(false);
+    setSavingToSandbox(false);
+  };
 
   const positionToCoords = (
     pageWidth: number,
@@ -81,10 +93,7 @@ export const WatermarkToolClient = () => {
             return;
           }
           void (async () => {
-            setFile(next);
-            setBytes(new Uint8Array(await next.arrayBuffer()));
-            setAppliedCount(0);
-            setDownloadComplete(false);
+            await loadFile(next);
           })();
         }}
       />
@@ -92,19 +101,20 @@ export const WatermarkToolClient = () => {
   }
 
   return (
-    <WatermarkPanel
-      file={file}
-      bytes={bytes}
-      progress={progress}
-      isProcessing={isProcessing}
-      downloadComplete={downloadComplete}
-      appliedCount={appliedCount}
-      onRemoveFile={() => {
-        setFile(null);
-        setBytes(null);
-        setAppliedCount(0);
-        setDownloadComplete(false);
-      }}
+    <ReplaceFileDropTarget onFile={loadFile}>
+      <WatermarkPanel
+        file={file}
+        bytes={bytes}
+        progress={progress}
+        isProcessing={isProcessing}
+        downloadComplete={downloadComplete}
+        appliedCount={appliedCount}
+        onRemoveFile={() => {
+          setFile(null);
+          setBytes(null);
+          setAppliedCount(0);
+          setDownloadComplete(false);
+        }}
       onTextWatermark={async (input) => {
         setIsProcessing(true);
         setProgress(10);
@@ -292,20 +302,32 @@ export const WatermarkToolClient = () => {
         setAppliedCount((count) => count + 1);
         toast.success("Watermark placed", "Added to all pages.");
       }}
-      onDownload={() => {
-        const output = new Blob([bytes], { type: "application/pdf" });
-        downloadBlob(output, `${file.name.replace(/\.pdf$/i, "")}_watermarked.pdf`);
-        trackToolActivity({
-          tool: "watermark",
-          fileName: file.name,
-          filesProcessed: 1,
-          inputBytes: file.size,
-          outputBytes: output.size
-        });
-        setDownloadComplete(true);
-        window.setTimeout(() => setDownloadComplete(false), 3000);
-        toast.success("Watermarked PDF downloaded");
-      }}
-    />
+        onDownload={() => {
+          const output = new Blob([bytes], { type: "application/pdf" });
+          downloadBlob(output, `${file.name.replace(/\.pdf$/i, "")}_watermarked.pdf`);
+          trackToolActivity({
+            tool: "watermark",
+            fileName: file.name,
+            filesProcessed: 1,
+            inputBytes: file.size,
+            outputBytes: output.size
+          });
+          setDownloadComplete(true);
+          window.setTimeout(() => setDownloadComplete(false), 3000);
+          toast.success("Watermarked PDF downloaded");
+        }}
+        onSaveToSandbox={async () => {
+          const output = new Blob([bytes], { type: "application/pdf" });
+          setSavingToSandbox(true);
+          try {
+            await addGeneratedPdf(`${file.name.replace(/\.pdf$/i, "")}_watermarked.pdf`, output);
+            toast.success("Saved to Sandbox", "Watermarked PDF is now in storage.");
+          } finally {
+            setSavingToSandbox(false);
+          }
+        }}
+        savingToSandbox={savingToSandbox}
+      />
+    </ReplaceFileDropTarget>
   );
 };

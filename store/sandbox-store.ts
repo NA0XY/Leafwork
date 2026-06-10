@@ -100,6 +100,19 @@ export const getSandboxNativeFiles = (fileIds: string[]): File[] => {
     });
 };
 
+export const getSandboxImageFiles = (fileIds: string[]): File[] => {
+  const { files } = useSandboxStore.getState();
+  const fileById = new Map(files.map((file) => [file.id, file]));
+
+  return fileIds.flatMap((fileId) => {
+    const file = fileById.get(fileId);
+    if (!file || file.kind !== "image" || !file.sourceFile) {
+      return [];
+    }
+    return [file.sourceFile];
+  });
+};
+
 const makePages = (file: SandboxFile): SandboxPageRef[] =>
   Array.from({ length: file.pageCount }, (_, pageIndex) => ({
     id: nanoid(),
@@ -168,7 +181,8 @@ export const useSandboxStore = create<SandboxStore>((set, get) => ({
             bytes,
             pageCount,
             size: file.size,
-            kind: "pdf"
+            kind: "pdf",
+            sourceFile: file
           });
         } else if (isImage(file)) {
           const pixelBudgetError = await validateImagePixelBudget(file);
@@ -187,7 +201,8 @@ export const useSandboxStore = create<SandboxStore>((set, get) => ({
             bytes: new Uint8Array(await converted.blob.arrayBuffer()),
             pageCount: converted.pageCount,
             size: converted.blob.size,
-            kind: "image"
+            kind: "image",
+            sourceFile: file
           });
         }
       }

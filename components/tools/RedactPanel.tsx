@@ -23,6 +23,8 @@ type RedactPanelProps = {
   bytes: Uint8Array;
   onRemoveFile: () => void;
   onApply: (areas: RedactionArea[]) => Promise<void>;
+  onSaveToSandbox?: (areas: RedactionArea[]) => Promise<void>;
+  savingToSandbox?: boolean;
 };
 
 type DrawingState = {
@@ -48,7 +50,14 @@ const normalizeRect = (startX: number, startY: number, endX: number, endY: numbe
   return { x, y, width, height };
 };
 
-export const RedactPanel = ({ file, bytes, onRemoveFile, onApply }: RedactPanelProps) => {
+export const RedactPanel = ({
+  file,
+  bytes,
+  onRemoveFile,
+  onApply,
+  onSaveToSandbox,
+  savingToSandbox = false
+}: RedactPanelProps) => {
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const [pageCount, setPageCount] = useState(1);
   const [pageNumber, setPageNumber] = useState(1);
@@ -189,6 +198,16 @@ export const RedactPanel = ({ file, bytes, onRemoveFile, onApply }: RedactPanelP
             <Button type="button" onClick={() => void onApply(areas)}>
               Redact and Download
             </Button>
+            {onSaveToSandbox ? (
+              <Button
+                type="button"
+                variant="secondary"
+                loading={savingToSandbox}
+                onClick={() => void onSaveToSandbox(areas)}
+              >
+                Save to Sandbox
+              </Button>
+            ) : null}
           </div>
         </div>
 
