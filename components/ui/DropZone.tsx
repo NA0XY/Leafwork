@@ -10,7 +10,7 @@ import { formatMarkedPageNumbers } from "@/lib/pdf/sandbox/marked-pages";
 import { checkMagicBytes } from "@/lib/validations/file";
 import { validateBrowserLocalFile, validateBrowserLocalTotalBytes, validateImagePixelBudget } from "@/lib/validations/pdf-safety";
 import { formatBytes, truncateFilename } from "@/lib/utils/format";
-import { getSandboxFileMetadata, getSandboxNativeFiles, SANDBOX_FILE_DRAG_MIME } from "@/store/sandbox-store";
+import { getSandboxFileMetadata, getSandboxImageFiles, getSandboxNativeFiles, SANDBOX_FILE_DRAG_MIME } from "@/store/sandbox-store";
 
 type DropZoneProps = {
   onFiles: (files: File[]) => void;
@@ -137,7 +137,7 @@ export const DropZone = ({
       if (sandboxPayload) {
         try {
           const fileIds = JSON.parse(sandboxPayload) as string[];
-          await handleFileValidation(getSandboxNativeFiles(fileIds));
+          await handleFileValidation(fileKind === "image" ? getSandboxImageFiles(fileIds) : getSandboxNativeFiles(fileIds));
           return;
         } catch {
           const message = "Unable to read sandbox files from this drag.";
@@ -149,7 +149,7 @@ export const DropZone = ({
 
       await handleFileValidation(Array.from(event.dataTransfer.files ?? []));
     },
-    [handleFileValidation, onError]
+    [fileKind, handleFileValidation, onError]
   );
 
   const rowCountLabel = useMemo(() => `${files.length} file${files.length === 1 ? "" : "s"} ready`, [files.length]);

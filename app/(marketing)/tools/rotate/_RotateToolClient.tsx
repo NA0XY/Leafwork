@@ -13,6 +13,7 @@ import { withPdfLib } from "@/lib/pdf/engine";
 import { getPageCount, renderThumbnail } from "@/lib/pdf/renderer";
 import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
+import { useSandboxStore } from "@/store/sandbox-store";
 
 type Rotation = -90 | 90 | 180;
 
@@ -44,6 +45,8 @@ export const RotateToolClient = () => {
   const [pageRotationPlan, setPageRotationPlan] = useState<Map<number, Rotation>>(new Map());
   const [rotation, setRotation] = useState<Rotation>(90);
   const [busy, setBusy] = useState(false);
+  const [savingToSandbox, setSavingToSandbox] = useState(false);
+  const addGeneratedPdf = useSandboxStore((state) => state.addGeneratedPdf);
 
   useEffect(() => {
     if (!bytes) {
@@ -105,7 +108,26 @@ export const RotateToolClient = () => {
     setThumbnails([]);
     setSelectedPages(new Set());
     setPageRotationPlan(new Map());
+    setSavingToSandbox(false);
   };
+
+  const buildRotatedPdf = async () =>
+    withPdfLib(async (pdfLib) => {
+      if (!bytes) {
+        throw new Error("No PDF loaded");
+      }
+
+      const doc = await pdfLib.PDFDocument.load(bytes);
+
+      operationPlan.forEach(({ pageIndex, delta }) => {
+        const page = doc.getPage(pageIndex);
+        const current = page.getRotation().angle;
+        page.setRotation(pdfLib.degrees((current + normalizeRotationDelta(delta) + 360) % 360));
+      });
+
+      const output = await doc.save({ useObjectStreams: true, addDefaultPage: false });
+      return new Blob([output], { type: "application/pdf" });
+    });
 
   if (!file || !bytes) {
     return (
@@ -136,6 +158,7 @@ export const RotateToolClient = () => {
           setThumbnails([]);
           setSelectedPages(new Set());
           setPageRotationPlan(new Map());
+          setSavingToSandbox(false);
         }}
       />
 
@@ -232,6 +255,8 @@ export const RotateToolClient = () => {
           {thumbnails.map((thumbnail, index) => {
             const selected = selectedPages.has(index);
             const plannedRotation = pageRotationPlan.get(index);
+            const previewRotation =
+              selectionMode === "all" ? rotation : pageRotationPlan.size > 0 ? plannedRotation ?? 0 : selected ? rotation : 0;
             return (
               <button
                 key={`rotate-thumb-${index}`}
@@ -257,11 +282,12 @@ export const RotateToolClient = () => {
                   alt={`Page ${index + 1}`}
                   className="mb-2"
                   imageClassName="h-auto w-full rounded-brutal border border-ink"
+                  rotationDeg={previewRotation}
                 />
                 <p className="text-xs font-semibold">Page {index + 1}</p>
-                {plannedRotation ? (
+                {previewRotation ? (
                   <span className="absolute bottom-2 right-2 rounded-full border border-ink bg-yellow-200 px-2 py-0.5 text-[10px] font-bold">
-                    {formatRotation(plannedRotation)}
+                    {formatRotation(previewRotation)}
                   </span>
                 ) : selectionMode === "selected" && selected ? (
                   <span className="absolute bottom-2 right-2 rounded-full border border-ink bg-accent px-2 py-0.5 text-[10px] font-bold">
@@ -273,46 +299,61 @@ export const RotateToolClient = () => {
           })}
         </div>
 
-        <Button
-          type="button"
-          loading={busy}
-          disabled={!operationPlan.length}
-          onClick={async () => {
-            setBusy(true);
+        <div className="flex flex-wrap gap-3">
+          <Button
+            type="button"
+            loading={busy}
+            disabled={!operationPlan.length}
+            onClick={async () => {
+              setBusy(true);
 
-            const result = await withPdfLib(async (pdfLib) => {
-              const doc = await pdfLib.PDFDocument.load(bytes);
+              const result = await buildRotatedPdf();
 
-              operationPlan.forEach(({ pageIndex, delta }) => {
-                const page = doc.getPage(pageIndex);
-                const current = page.getRotation().angle;
-                page.setRotation(pdfLib.degrees((current + normalizeRotationDelta(delta) + 360) % 360));
+              setBusy(false);
+
+              if (!result.data) {
+                toast.error("Rotation failed", result.error?.message ?? "Unable to rotate pages");
+                return;
+              }
+
+              downloadBlob(result.data, `${file.name.replace(/\.pdf$/i, "")}_rotated.pdf`);
+              trackToolActivity({
+                tool: "rotate",
+                fileName: file.name,
+                filesProcessed: 1,
+                inputBytes: file.size,
+                outputBytes: result.data.size
               });
+              toast.success("Rotated PDF downloaded");
+            }}
+          >
+            Rotate and Download
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            loading={savingToSandbox}
+            disabled={!operationPlan.length}
+            onClick={async () => {
+              setSavingToSandbox(true);
+              try {
+                const result = await buildRotatedPdf();
 
-              const output = await doc.save({ useObjectStreams: true, addDefaultPage: false });
-              return new Blob([output], { type: "application/pdf" });
-            });
+                if (!result.data) {
+                  toast.error("Rotation failed", result.error?.message ?? "Unable to rotate pages");
+                  return;
+                }
 
-            setBusy(false);
-
-            if (!result.data) {
-              toast.error("Rotation failed", result.error?.message ?? "Unable to rotate pages");
-              return;
-            }
-
-            downloadBlob(result.data, `${file.name.replace(/\.pdf$/i, "")}_rotated.pdf`);
-            trackToolActivity({
-              tool: "rotate",
-              fileName: file.name,
-              filesProcessed: 1,
-              inputBytes: file.size,
-              outputBytes: result.data.size
-            });
-            toast.success("Rotated PDF downloaded");
-          }}
-        >
-          Rotate and Download
-        </Button>
+                await addGeneratedPdf(`${file.name.replace(/\.pdf$/i, "")}_rotated.pdf`, result.data);
+                toast.success("Saved to Sandbox", "Rotated PDF is now in storage.");
+              } finally {
+                setSavingToSandbox(false);
+              }
+            }}
+          >
+            Save to Sandbox
+          </Button>
+        </div>
       </section>
     </ReplaceFileDropTarget>
   );

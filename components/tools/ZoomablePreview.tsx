@@ -10,10 +10,16 @@ type ZoomablePreviewProps = {
   alt: string;
   className?: string;
   imageClassName?: string;
+  rotationDeg?: number;
 };
 
-export const ZoomablePreview = ({ src, alt, className, imageClassName }: ZoomablePreviewProps) => {
+export const ZoomablePreview = ({ src, alt, className, imageClassName, rotationDeg = 0 }: ZoomablePreviewProps) => {
   const [open, setOpen] = useState(false);
+  const normalizedRotation = ((rotationDeg % 360) + 360) % 360;
+  const isQuarterTurn = normalizedRotation === 90 || normalizedRotation === 270;
+  const rotationStyle = {
+    transform: `rotate(${rotationDeg}deg) scale(${isQuarterTurn ? 0.72 : 1})`
+  };
 
   const openPreview = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -30,7 +36,12 @@ export const ZoomablePreview = ({ src, alt, className, imageClassName }: Zoomabl
   return (
     <>
       <div className={cn("group relative overflow-hidden rounded-brutal", className)}>
-        <img src={src} alt={alt} className={cn("block", imageClassName)} />
+        <img
+          src={src}
+          alt={alt}
+          className={cn("block transition-transform duration-150", imageClassName)}
+          style={rotationStyle}
+        />
         <button
           type="button"
           aria-label={`Zoom ${alt}`}
@@ -67,6 +78,7 @@ export const ZoomablePreview = ({ src, alt, className, imageClassName }: Zoomabl
               src={src}
               alt={alt}
               className="max-h-[86vh] max-w-[86vw] rounded-brutal border border-ink object-contain"
+              style={rotationStyle}
               onClick={(event) => event.stopPropagation()}
             />
           </div>

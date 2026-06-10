@@ -14,6 +14,7 @@ import { withPdfLib } from "@/lib/pdf/engine";
 import { getPageCount } from "@/lib/pdf/renderer";
 import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
+import { useSandboxStore } from "@/store/sandbox-store";
 
 type Placement = {
   x: number;
@@ -36,7 +37,9 @@ export const SignToolClient = () => {
   const [placement, setPlacement] = useState<Placement>({ x: 0.35, y: 0.45, width: 0.3, height: 0.12 });
   const [mode, setMode] = useState<ResizeMode>("none");
   const [busy, setBusy] = useState(false);
+  const [savingToSandbox, setSavingToSandbox] = useState(false);
   const [hasPlacedSignature, setHasPlacedSignature] = useState(false);
+  const addGeneratedPdf = useSandboxStore((state) => state.addGeneratedPdf);
   const overlayRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -83,6 +86,7 @@ export const SignToolClient = () => {
     setPageNumber(1);
     setPlacement({ x: 0.35, y: 0.45, width: 0.3, height: 0.12 });
     setHasPlacedSignature(false);
+    setSavingToSandbox(false);
   };
 
   if (!file || !bytes) {
@@ -112,6 +116,7 @@ export const SignToolClient = () => {
           setBytes(null);
           setSignatureData(null);
           setHasPlacedSignature(false);
+          setSavingToSandbox(false);
         }}
       />
 
@@ -293,6 +298,25 @@ export const SignToolClient = () => {
             }}
           >
             Download Signed PDF
+          </Button>
+
+          <Button
+            type="button"
+            variant="secondary"
+            loading={savingToSandbox}
+            disabled={!hasPlacedSignature}
+            onClick={async () => {
+              const output = new Blob([bytes], { type: "application/pdf" });
+              setSavingToSandbox(true);
+              try {
+                await addGeneratedPdf(`${file.name.replace(/\.pdf$/i, "")}_signed.pdf`, output);
+                toast.success("Saved to Sandbox", "Signed PDF is now in storage.");
+              } finally {
+                setSavingToSandbox(false);
+              }
+            }}
+          >
+            Save to Sandbox
           </Button>
         </div>
       </section>

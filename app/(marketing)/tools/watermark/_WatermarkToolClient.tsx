@@ -10,6 +10,7 @@ import { withPdfLib } from "@/lib/pdf/engine";
 import type { WatermarkPosition } from "@/lib/pdf/types";
 import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
+import { useSandboxStore } from "@/store/sandbox-store";
 
 const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
   const clean = hex.replace("#", "");
@@ -31,6 +32,8 @@ export const WatermarkToolClient = () => {
   const [progress, setProgress] = useState(0);
   const [downloadComplete, setDownloadComplete] = useState(false);
   const [appliedCount, setAppliedCount] = useState(0);
+  const [savingToSandbox, setSavingToSandbox] = useState(false);
+  const addGeneratedPdf = useSandboxStore((state) => state.addGeneratedPdf);
   const toast = useToast();
 
   const loadFile = async (next: File) => {
@@ -38,6 +41,7 @@ export const WatermarkToolClient = () => {
     setBytes(new Uint8Array(await next.arrayBuffer()));
     setAppliedCount(0);
     setDownloadComplete(false);
+    setSavingToSandbox(false);
   };
 
   const positionToCoords = (
@@ -312,6 +316,17 @@ export const WatermarkToolClient = () => {
           window.setTimeout(() => setDownloadComplete(false), 3000);
           toast.success("Watermarked PDF downloaded");
         }}
+        onSaveToSandbox={async () => {
+          const output = new Blob([bytes], { type: "application/pdf" });
+          setSavingToSandbox(true);
+          try {
+            await addGeneratedPdf(`${file.name.replace(/\.pdf$/i, "")}_watermarked.pdf`, output);
+            toast.success("Saved to Sandbox", "Watermarked PDF is now in storage.");
+          } finally {
+            setSavingToSandbox(false);
+          }
+        }}
+        savingToSandbox={savingToSandbox}
       />
     </ReplaceFileDropTarget>
   );

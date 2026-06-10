@@ -13,6 +13,7 @@ import { trackToolActivity } from "@/lib/utils/activity";
 import { cn } from "@/lib/utils/cn";
 import { downloadBlob } from "@/lib/utils/file";
 import { formatBytes, truncateFilename } from "@/lib/utils/format";
+import { getSandboxImageFiles, SANDBOX_FILE_DRAG_MIME } from "@/store/sandbox-store";
 
 type ImageItem = {
   id: string;
@@ -97,9 +98,26 @@ export const ImagesToPdfToolClient = () => {
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
       setIsDropActive(false);
-      appendImageFiles(Array.from(event.dataTransfer.files ?? []));
+      const sandboxPayload = event.dataTransfer.getData(SANDBOX_FILE_DRAG_MIME);
+
+      if (!sandboxPayload) {
+        appendImageFiles(Array.from(event.dataTransfer.files ?? []));
+        return;
+      }
+
+      try {
+        const fileIds = JSON.parse(sandboxPayload) as string[];
+        const sandboxImages = getSandboxImageFiles(fileIds);
+        if (!sandboxImages.length) {
+          toast.error("No image files found", "Drag PNG or JPG items from storage into this tool.");
+          return;
+        }
+        appendImageFiles(sandboxImages);
+      } catch {
+        toast.error("Unable to read sandbox files", "Try dragging the image from storage again.");
+      }
     },
-    [appendImageFiles]
+    [appendImageFiles, toast]
   );
 
   const handleDragLeave = useCallback((event: DragEvent<HTMLDivElement>) => {

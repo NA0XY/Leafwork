@@ -73,6 +73,8 @@ type WatermarkPanelProps = {
     input: { opacity: number; rotation: number; position: WatermarkPosition; imageSize: number }
   ) => Promise<void>;
   onDownload: () => void;
+  onSaveToSandbox?: () => Promise<void>;
+  savingToSandbox?: boolean;
 };
 
 export const WatermarkPanel = ({
@@ -87,7 +89,9 @@ export const WatermarkPanel = ({
   onTextWatermarkAll,
   onImageWatermark,
   onImageWatermarkAll,
-  onDownload
+  onDownload,
+  onSaveToSandbox,
+  savingToSandbox = false
 }: WatermarkPanelProps) => {
   const [tab, setTab] = useState<"text" | "image">("text");
   const [text, setText] = useState("CONFIDENTIAL");
@@ -349,6 +353,17 @@ export const WatermarkPanel = ({
             <Button type="button" variant="secondary" disabled={appliedCount < 1} onClick={onDownload}>
               Download Watermarked PDF
             </Button>
+            {onSaveToSandbox ? (
+              <Button
+                type="button"
+                variant="secondary"
+                loading={savingToSandbox}
+                disabled={appliedCount < 1}
+                onClick={() => void onSaveToSandbox()}
+              >
+                Save to Sandbox
+              </Button>
+            ) : null}
 
             {downloadComplete ? <Badge tone="success">Downloaded OK</Badge> : null}
             {appliedCount > 0 ? <Badge>{appliedCount} placement(s)</Badge> : null}
