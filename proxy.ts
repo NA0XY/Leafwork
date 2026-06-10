@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 
 import { applyRateLimit, authLimiter, generalLimiter } from "@/lib/rate-limit/upstash";
 import { refreshSupabaseSession } from "@/lib/auth/middleware-helpers";
+import { resolveClientIp } from "@/lib/utils/api";
 import { logger } from "@/lib/utils/logger";
 
 type LimitConfig = {
@@ -23,14 +24,14 @@ const buildRateHeaders = (config: LimitConfig): HeadersInit => ({
   "X-RateLimit-Reset": config.reset.toString()
 });
 
-export async function middleware(request: NextRequest): Promise<NextResponse> {
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const startedAt = Date.now();
   const requestId = nanoid(12);
   const pathname = request.nextUrl.pathname;
-  const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.ip || "0.0.0.0";
+  const clientIp = resolveClientIp(request);
 
   try {
-    logger.debug("middleware.request.start", {
+    logger.debug("proxy.request.start", {
       requestId,
       method: request.method,
       path: pathname,
@@ -59,7 +60,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
         reset: Math.ceil(result.reset / 1000)
       };
 
-      logger.debug("middleware.rate_limit.checked", {
+      logger.debug("proxy.rate_limit.checked", {
         requestId,
         path: pathname,
         isAuthenticated,
@@ -71,7 +72,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
       if (!result.success) {
         const retryAfterSeconds = Math.max(1, Math.ceil((result.reset - Date.now()) / 1000));
-        logger.warn("middleware.rate_limit.blocked", {
+        logger.warn("proxy.rate_limit.blocked", {
           requestId,
           path: pathname,
           retryAfterSeconds,
@@ -100,7 +101,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     if (pathname.startsWith("/dashboard") && !isAuthenticated) {
       const redirectUrl = new URL("/login", request.url);
       redirectUrl.searchParams.set("next", pathname);
-      logger.info("middleware.dashboard.redirect_login", {
+      logger.info("proxy.dashboard.redirect_login", {
         requestId,
         path: pathname,
         redirectTo: redirectUrl.toString()
@@ -109,7 +110,6 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     }
 
     response.headers.set("x-request-id", requestId);
-    response.headers.set("x-user-id", userId ?? "anonymous");
 
     if (isApiRoute) {
       const headers = buildRateHeaders(rateContext);
@@ -119,7 +119,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     }
 
     const latency = Date.now() - startedAt;
-    logger.info("middleware.request.complete", {
+    logger.info("proxy.request.complete", {
       requestId,
       method: request.method,
       path: pathname,
@@ -132,7 +132,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
     return response;
   } catch (error) {
-    logger.error("middleware.request.error", {
+    logger.error("proxy.request.error", {
       requestId,
       method: request.method,
       path: pathname,
