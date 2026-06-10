@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { FileText, Plus, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -46,6 +46,7 @@ export const DropZone = ({
   accept = "application/pdf",
   fileKind = "pdf"
 }: DropZoneProps) => {
+  const inputId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isTouchMode, setIsTouchMode] = useState(false);
@@ -131,9 +132,6 @@ export const DropZone = ({
   const onDrop = useCallback(
     async (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
-      if (isTouchMode) {
-        return;
-      }
       setIsDragging(false);
       const sandboxPayload = event.dataTransfer.getData(SANDBOX_FILE_DRAG_MIME);
       if (sandboxPayload) {
@@ -151,7 +149,7 @@ export const DropZone = ({
 
       await handleFileValidation(Array.from(event.dataTransfer.files ?? []));
     },
-    [handleFileValidation, isTouchMode, onError]
+    [handleFileValidation, onError]
   );
 
   const rowCountLabel = useMemo(() => `${files.length} file${files.length === 1 ? "" : "s"} ready`, [files.length]);
@@ -176,28 +174,18 @@ export const DropZone = ({
         className={cn(
           "relative min-h-[18rem] rounded-brutal border-2 border-ink bg-surface p-4 transition-all duration-150",
           files.length === 0 ? "border-dashed min-h-56" : "min-h-[10rem]",
+          files.length === 0 && "cursor-pointer",
           isDragging && !isTouchMode && "border-primary bg-green-100 scale-[1.01] dropzone-drag-pulse"
         )}
         onDragOver={(event) => {
-          if (isTouchMode) {
-            return;
-          }
           event.preventDefault();
           setIsDragging(true);
         }}
         onDragLeave={(event) => {
-          if (isTouchMode) {
-            return;
-          }
           event.preventDefault();
           setIsDragging(false);
         }}
         onDrop={onDrop}
-        onClick={() => {
-          if (files.length === 0) {
-            openPicker();
-          }
-        }}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
@@ -207,12 +195,12 @@ export const DropZone = ({
         tabIndex={0}
       >
         {files.length === 0 ? (
-          <div className="flex h-full min-h-48 flex-col items-center justify-center gap-2 text-center">
+          <label htmlFor={inputId} className="absolute inset-0 flex min-h-48 cursor-pointer flex-col items-center justify-center gap-2 p-4 text-center">
             <FileText className="h-12 w-12 text-primary" aria-hidden="true" />
             <p className="text-lg font-bold">{label}</p>
             <p className="text-sm text-muted">or click to browse</p>
             <p className="text-xs text-muted">{fileKind === "image" ? "Accepts PNG and JPG images" : "Accepts PDF files only"}</p>
-          </div>
+          </label>
         ) : (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
@@ -261,6 +249,7 @@ export const DropZone = ({
         )}
 
         <input
+          id={inputId}
           ref={inputRef}
           type="file"
           accept={accept}

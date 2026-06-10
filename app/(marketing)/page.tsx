@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 
 import { AnswerBlocks } from "@/components/landing/AnswerBlocks";
 import { WhyLeafworkDifferent } from "@/components/landing/ComparisonTable";
 import { FeatureGrid } from "@/components/landing/FeatureGrid";
 import { Hero } from "@/components/landing/Hero";
 import { ToolGrid } from "@/components/landing/ToolGrid";
+import { JsonLd } from "@/components/seo/JsonLd";
 import {
   HOMEPAGE_FAQS,
   canonicalUrl,
   generateFAQSchema,
   generateOrganizationSchema,
   generateSoftwareAppSchema,
-  generateWebsiteSchema,
-  serializeJsonLd
+  generateWebsiteSchema
 } from "@/lib/utils/seo";
 
 export const metadata: Metadata = {
@@ -45,32 +44,10 @@ export default function MarketingHomePage() {
       <WhyLeafworkDifferent />
       <ToolGrid />
 
-      <Script
-        id="homepage-org-schema"
-        type="application/ld+json"
-        strategy="beforeInteractive"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(generateOrganizationSchema()) }}
-      />
-      <Script
-        id="homepage-website-schema"
-        type="application/ld+json"
-        strategy="beforeInteractive"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(generateWebsiteSchema()) }}
-      />
-      {softwareSchema ? (
-        <Script
-          id="homepage-software-schema"
-          type="application/ld+json"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: serializeJsonLd(softwareSchema) }}
-        />
-      ) : null}
-      <Script
-        id="homepage-faq-schema"
-        type="application/ld+json"
-        strategy="beforeInteractive"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(generateFAQSchema(HOMEPAGE_FAQS)) }}
-      />
+      <JsonLd id="homepage-org-schema" schema={generateOrganizationSchema()} />
+      <JsonLd id="homepage-website-schema" schema={generateWebsiteSchema()} />
+      {softwareSchema ? <JsonLd id="homepage-software-schema" schema={softwareSchema} /> : null}
+      <JsonLd id="homepage-faq-schema" schema={generateFAQSchema(HOMEPAGE_FAQS)} />
     </div>
   );
 }

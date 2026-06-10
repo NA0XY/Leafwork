@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Script from "next/script";
 
-import { canonicalUrl, generateWebPageSchema, serializeJsonLd } from "@/lib/utils/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { canonicalUrl, generateWebPageSchema } from "@/lib/utils/seo";
 
 export const metadata: Metadata = {
   title: "Security",
@@ -35,12 +35,7 @@ const processingMatrix = [
 export default function SecurityPage() {
   return (
     <>
-      <Script
-        id="security-page-schema"
-        type="application/ld+json"
-        strategy="beforeInteractive"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(pageSchema) }}
-      />
+      <JsonLd id="security-page-schema" schema={pageSchema} />
 
       <article className="mx-auto max-w-4xl space-y-8">
         <header className="space-y-3">

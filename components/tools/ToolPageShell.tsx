@@ -1,8 +1,8 @@
 ﻿import Link from "next/link";
-import Script from "next/script";
 import { Lock } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { JsonLd } from "@/components/seo/JsonLd";
 import { Badge } from "@/components/ui/Badge";
 import { getToolFeatureState } from "@/lib/config/features";
 import {
@@ -12,7 +12,6 @@ import {
   getToolAnswerBlock,
   getRelatedToolLinks,
   getToolFaqs,
-  serializeJsonLd,
   type ToolFAQ,
   type ToolSlug
 } from "@/lib/utils/seo";
@@ -166,24 +165,10 @@ export const ToolPageShell = ({ toolTitle, description, faqs, toolSlug, children
 
       {toolSlug ? (
         <>
-          <Script
-            id={`${toolSlug}-breadcrumb-schema`}
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: serializeJsonLd(generateBreadcrumbSchema({ toolSlug, toolTitle })) }}
-          />
-          {softwareSchema ? (
-            <Script
-              id={`${toolSlug}-software-schema`}
-              type="application/ld+json"
-              dangerouslySetInnerHTML={{ __html: serializeJsonLd(softwareSchema) }}
-            />
-          ) : null}
+          <JsonLd id={`${toolSlug}-breadcrumb-schema`} schema={generateBreadcrumbSchema({ toolSlug, toolTitle })} />
+          {softwareSchema ? <JsonLd id={`${toolSlug}-software-schema`} schema={softwareSchema} /> : null}
           {shouldEmitToolSchema && faqItems.length > 0 ? (
-            <Script
-              id={`${toolSlug}-faq-schema`}
-              type="application/ld+json"
-              dangerouslySetInnerHTML={{ __html: serializeJsonLd(generateFAQSchema(faqItems)) }}
-            />
+            <JsonLd id={`${toolSlug}-faq-schema`} schema={generateFAQSchema(faqItems)} />
           ) : null}
         </>
       ) : null}
