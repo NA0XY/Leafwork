@@ -25,8 +25,13 @@ const FOCUSABLE = [
 export const Modal = ({ open, title, onClose, children }: ModalProps) => {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const onCloseRef = useRef(onClose);
   const [mounted, setMounted] = useState(open);
   const [visible, setVisible] = useState(open);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (open) {
@@ -56,7 +61,7 @@ export const Modal = ({ open, title, onClose, children }: ModalProps) => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -85,7 +90,7 @@ export const Modal = ({ open, title, onClose, children }: ModalProps) => {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [mounted, onClose]);
+  }, [mounted]);
 
   if (!mounted) {
     return null;
