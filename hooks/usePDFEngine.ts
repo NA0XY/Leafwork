@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import { useToast } from "@/hooks/useToast";
 import { compressPDF } from "@/lib/pdf/compress";
-import { mergePDFs } from "@/lib/pdf/merge";
+import { mergePDFs, type MergeSelection } from "@/lib/pdf/merge";
 import { stripMetadata } from "@/lib/pdf/metadata";
 import { rotateAll } from "@/lib/pdf/rotate";
 import { extractPages, splitByPages, splitEveryN, type PageRange } from "@/lib/pdf/split";
@@ -88,10 +88,10 @@ export const usePDFEngine = () => {
   );
 
   const merge = useCallback(
-    async (files: File[], order: number[]) =>
+    async (files: File[], selections: MergeSelection[]) =>
       withLifecycle(
         async (setStepProgress) => {
-          const result = await mergePDFs(files, order, setStepProgress);
+          const result = await mergePDFs(files, selections, setStepProgress);
           if (!result.data) {
             throw result.error ?? new Error("Merge failed");
           }
@@ -212,10 +212,24 @@ export const usePDFEngine = () => {
   );
 
   const compress = useCallback(
-    async (file: File, targetKB: number) =>
+    async (
+      file: File,
+      targetKB: number,
+      options?: { stripMetadata?: boolean; allowRasterization?: boolean; keepTextSharp?: boolean; grayscale?: boolean }
+    ) =>
       withLifecycle(
         async (setStepProgress) => {
-          const result = await compressPDF(file, { targetKB }, setStepProgress);
+          const result = await compressPDF(
+            file,
+            {
+              targetKB,
+              stripMetadata: options?.stripMetadata,
+              allowRasterization: options?.allowRasterization,
+              keepTextSharp: options?.keepTextSharp,
+              grayscale: options?.grayscale
+            },
+            setStepProgress
+          );
           if (!result.data) {
             throw result.error ?? new Error("Compression failed");
           }

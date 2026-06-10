@@ -9,7 +9,10 @@ import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
 import { usePDFEngine } from "@/hooks/usePDFEngine";
 import { usePendingFiles } from "@/hooks/usePendingFiles";
+import { useToast } from "@/hooks/useToast";
+import { mergePDFs } from "@/lib/pdf/merge";
 import { useCanvasStore } from "@/store/canvas-store";
+import { useSandboxStore } from "@/store/sandbox-store";
 
 const PDF_MAGIC = "%PDF-";
 
@@ -21,8 +24,11 @@ const readMagicBytes = async (file: File): Promise<string> => {
 export const MergeToolClient = () => {
   const pendingFiles = usePendingFiles();
   const [files, setFiles] = useState<File[]>([]);
+  const [savingToSandbox, setSavingToSandbox] = useState(false);
   const pdf = usePDFEngine();
+  const toast = useToast();
   const clearPending = useCanvasStore((state) => state.clearPendingFileNames);
+  const addGeneratedPdf = useSandboxStore((state) => state.addGeneratedPdf);
   const addInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -94,13 +100,28 @@ export const MergeToolClient = () => {
           <MergePanel
             files={files}
             progress={pdf.progress}
-            isProcessing={pdf.isProcessing}
+            isProcessing={pdf.isProcessing || savingToSandbox}
             error={pdf.error}
             onRemoveFile={(index) => {
               setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
             }}
-            onMerge={async (order) => {
-              await pdf.merge(files, order);
+            onMerge={async (selections) => {
+              await pdf.merge(files, selections);
+            }}
+            onSaveToSandbox={async (selections) => {
+              setSavingToSandbox(true);
+              try {
+                const result = await mergePDFs(files, selections);
+                if (!result.data) {
+                  toast.error("Merge failed", result.error?.message ?? "Unable to merge files into sandbox");
+                  return;
+                }
+
+                await addGeneratedPdf("merged_from_tool.pdf", result.data);
+                toast.success("Saved to Sandbox", "The merged PDF is now available in storage.");
+              } finally {
+                setSavingToSandbox(false);
+              }
             }}
           />
         </>

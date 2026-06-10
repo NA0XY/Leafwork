@@ -6,8 +6,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils/cn";
+import { formatMarkedPageNumbers } from "@/lib/pdf/sandbox/marked-pages";
 import { checkMagicBytes } from "@/lib/validations/file";
+import { validateBrowserLocalFile, validateBrowserLocalTotalBytes, validateImagePixelBudget } from "@/lib/validations/pdf-safety";
 import { formatBytes, truncateFilename } from "@/lib/utils/format";
+import { getSandboxFileMetadata, getSandboxNativeFiles, SANDBOX_FILE_DRAG_MIME } from "@/store/sandbox-store";
 
 type DropZoneProps = {
   onFiles: (files: File[]) => void;
@@ -15,11 +18,17 @@ type DropZoneProps = {
   label?: string;
   multiple?: boolean;
   accept?: string;
+  fileKind?: "pdf" | "image";
 };
 
 const readMagicBytes = async (file: File): Promise<boolean> => {
   const chunk = await file.slice(0, 1024).arrayBuffer();
   return checkMagicBytes(chunk);
+};
+
+const isSupportedImage = (file: File): boolean => {
+  const type = file.type.toLowerCase();
+  return type === "image/png" || type === "image/jpeg" || /\.(png|jpe?g)$/i.test(file.name);
 };
 
 const isMobileTouch = (): boolean => {
@@ -34,7 +43,8 @@ export const DropZone = ({
   onError,
   label = "Drop PDF files here",
   multiple = true,
-  accept = "application/pdf"
+  accept = "application/pdf",
+  fileKind = "pdf"
 }: DropZoneProps) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -62,13 +72,28 @@ export const DropZone = ({
 
       const validated: File[] = [];
       for (const file of incoming) {
-        const hasPdfMagic = await readMagicBytes(file);
-        if (!hasPdfMagic) {
-          const message = `Not a PDF file: ${file.name}`;
+        const valid = fileKind === "image" ? isSupportedImage(file) : await readMagicBytes(file);
+        if (!valid) {
+          const message = fileKind === "image" ? `Not a supported PNG/JPG image: ${file.name}` : `Not a PDF file: ${file.name}`;
           setError(message);
           onError?.(message);
           continue;
         }
+
+        const fileBudgetError = validateBrowserLocalFile(file, { kind: fileKind });
+        if (fileBudgetError) {
+          setError(fileBudgetError);
+          onError?.(fileBudgetError);
+          continue;
+        }
+
+        const pixelBudgetError = fileKind === "image" ? await validateImagePixelBudget(file) : null;
+        if (pixelBudgetError) {
+          setError(pixelBudgetError);
+          onError?.(pixelBudgetError);
+          continue;
+        }
+
         validated.push(file);
       }
 
@@ -76,11 +101,21 @@ export const DropZone = ({
         return;
       }
 
+      const totalBudgetError = validateBrowserLocalTotalBytes(
+        files.reduce((total, file) => total + file.size, 0),
+        validated.reduce((total, file) => total + file.size, 0)
+      );
+      if (totalBudgetError) {
+        setError(totalBudgetError);
+        onError?.(totalBudgetError);
+        return;
+      }
+
       setError(null);
       const nextFiles = multiple ? [...files, ...validated] : [validated[0] as File];
       emitFiles(nextFiles);
     },
-    [emitFiles, files, multiple, onError]
+    [emitFiles, fileKind, files, multiple, onError]
   );
 
   const handleInputChange = useCallback(
@@ -100,9 +135,23 @@ export const DropZone = ({
         return;
       }
       setIsDragging(false);
+      const sandboxPayload = event.dataTransfer.getData(SANDBOX_FILE_DRAG_MIME);
+      if (sandboxPayload) {
+        try {
+          const fileIds = JSON.parse(sandboxPayload) as string[];
+          await handleFileValidation(getSandboxNativeFiles(fileIds));
+          return;
+        } catch {
+          const message = "Unable to read sandbox files from this drag.";
+          setError(message);
+          onError?.(message);
+          return;
+        }
+      }
+
       await handleFileValidation(Array.from(event.dataTransfer.files ?? []));
     },
-    [handleFileValidation, isTouchMode]
+    [handleFileValidation, isTouchMode, onError]
   );
 
   const rowCountLabel = useMemo(() => `${files.length} file${files.length === 1 ? "" : "s"} ready`, [files.length]);
@@ -162,7 +211,7 @@ export const DropZone = ({
             <FileText className="h-12 w-12 text-primary" aria-hidden="true" />
             <p className="text-lg font-bold">{label}</p>
             <p className="text-sm text-muted">or click to browse</p>
-            <p className="text-xs text-muted">Accepts PDF files only</p>
+            <p className="text-xs text-muted">{fileKind === "image" ? "Accepts PNG and JPG images" : "Accepts PDF files only"}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -175,26 +224,38 @@ export const DropZone = ({
             </div>
 
             <ul className="space-y-2">
-              {files.map((file, index) => (
-                <li
-                  key={`${file.name}-${file.lastModified}-${index}`}
-                  className="flex items-center gap-2 rounded-brutal border-2 border-ink bg-paper px-3 py-2"
-                >
-                  <FileText className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold" title={file.name}>
-                    {truncateFilename(file.name, 30)}
-                  </span>
-                  <span className="text-xs text-muted">{formatBytes(file.size)}</span>
-                  <button
-                    type="button"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-brutal border-2 border-ink bg-surface text-ink"
-                    aria-label={`Remove ${file.name}`}
-                    onClick={() => removeFile(index)}
+              {files.map((file, index) => {
+                const sandboxMeta = getSandboxFileMetadata(file);
+                const markedPages = sandboxMeta ? formatMarkedPageNumbers(sandboxMeta.markedPages) : "";
+
+                return (
+                  <li
+                    key={`${file.name}-${file.lastModified}-${index}`}
+                    className="flex items-center gap-2 rounded-brutal border-2 border-ink bg-paper px-3 py-2"
                   >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              ))}
+                    <FileText className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold" title={file.name}>
+                        {truncateFilename(file.name, 30)}
+                      </span>
+                      {markedPages ? (
+                        <span className="mt-1 inline-flex rounded-brutal border border-ink bg-green-100 px-1.5 py-0.5 text-[11px] font-semibold">
+                          Marked: {markedPages}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="text-xs text-muted">{formatBytes(file.size)}</span>
+                    <button
+                      type="button"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-brutal border-2 border-ink bg-surface text-ink"
+                      aria-label={`Remove ${file.name}`}
+                      onClick={() => removeFile(index)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}

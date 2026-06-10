@@ -18,15 +18,20 @@ import { CSS } from "@dnd-kit/utilities";
 import { FileText, GripVertical, RotateCcw, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { ZoomablePreview } from "@/components/tools/ZoomablePreview";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatPageCount, truncateFilename } from "@/lib/utils/format";
-import { getPageCount } from "@/lib/pdf/renderer";
+import { formatMarkedPageNumbers } from "@/lib/pdf/sandbox/marked-pages";
+import { getPageCount, renderThumbnail } from "@/lib/pdf/renderer";
 import { cn } from "@/lib/utils/cn";
+import type { MergePageRange, MergeSelection } from "@/lib/pdf/merge";
+import { getSandboxFileMetadata } from "@/store/sandbox-store";
 
 type MergePanelProps = {
   files: File[];
-  onMerge: (order: number[]) => Promise<void>;
+  onMerge: (selections: MergeSelection[]) => Promise<void>;
+  onSaveToSandbox?: (selections: MergeSelection[]) => Promise<void>;
   onRemoveFile: (index: number) => void;
   progress: number;
   isProcessing: boolean;
@@ -40,10 +45,53 @@ type MergeItem = {
 
 const RANGE_REGEX = /^(\d+(-\d+)?)(,\s*\d+(-\d+)?)*$/;
 
+const parsePageRanges = (value: string, pageCount?: number): { ranges?: MergePageRange[]; invalid: boolean } => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { invalid: false };
+  }
+
+  if (!RANGE_REGEX.test(trimmed)) {
+    return { invalid: true };
+  }
+
+  const seen = new Set<number>();
+  const ranges: MergePageRange[] = [];
+
+  for (const chunk of trimmed.split(",")) {
+    const [startRaw, endRaw] = chunk.trim().split("-");
+    const start = Number(startRaw);
+    const end = Number(endRaw ?? startRaw);
+    const normalizedStart = Math.min(start, end);
+    const normalizedEnd = Math.max(start, end);
+
+    if (
+      !Number.isInteger(start) ||
+      !Number.isInteger(end) ||
+      normalizedStart < 1 ||
+      (pageCount !== undefined && normalizedEnd > pageCount)
+    ) {
+      return { invalid: true };
+    }
+
+    for (let page = normalizedStart; page <= normalizedEnd; page += 1) {
+      if (seen.has(page)) {
+        return { invalid: true };
+      }
+      seen.add(page);
+    }
+
+    ranges.push({ start: normalizedStart, end: normalizedEnd });
+  }
+
+  return { ranges, invalid: false };
+};
+
 const SortableRow = ({
   item,
   file,
   pageCount,
+  thumbnail,
   rangeValue,
   rangeError,
   onRemove,
@@ -53,6 +101,7 @@ const SortableRow = ({
   item: MergeItem;
   file: File;
   pageCount: number | null;
+  thumbnail?: string;
   rangeValue: string;
   rangeError: boolean;
   onRemove: () => void;
@@ -60,6 +109,8 @@ const SortableRow = ({
   onRangeBlur: () => void;
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const sandboxMeta = getSandboxFileMetadata(file);
+  const markedPages = sandboxMeta ? formatMarkedPageNumbers(sandboxMeta.markedPages) : "";
 
   return (
     <li
@@ -72,7 +123,7 @@ const SortableRow = ({
       )}
       data-over={isDragging ? "true" : "false"}
     >
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[auto_1fr_auto] lg:items-center">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[auto_auto_1fr_auto] lg:items-center">
         <button
           type="button"
           className="inline-flex h-8 w-8 items-center justify-center rounded-brutal border-2 border-ink bg-surface"
@@ -83,6 +134,19 @@ const SortableRow = ({
           <GripVertical className="h-4 w-4" />
         </button>
 
+        {thumbnail ? (
+          <ZoomablePreview
+            src={thumbnail}
+            alt={`${file.name} preview`}
+            className="w-20"
+            imageClassName="h-24 w-20 rounded-brutal border border-ink bg-surface object-cover"
+          />
+        ) : (
+          <div className="flex h-24 w-20 items-center justify-center rounded-brutal border border-ink bg-surface text-primary">
+            <FileText className="h-5 w-5" aria-hidden="true" />
+          </div>
+        )}
+
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-sm font-semibold">
             <FileText className="h-4 w-4 text-primary" />
@@ -91,6 +155,11 @@ const SortableRow = ({
             </span>
           </p>
           <p className="mt-1 text-xs text-muted">{pageCount ? formatPageCount(pageCount) : "Counting pages..."}</p>
+          {markedPages ? (
+            <p className="mt-2 inline-flex rounded-brutal border border-ink bg-green-100 px-2 py-1 text-xs font-semibold">
+              Marked: {markedPages}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -122,6 +191,7 @@ const SortableRow = ({
 export const MergePanel = ({
   files,
   onMerge,
+  onSaveToSandbox,
   onRemoveFile,
   progress,
   isProcessing,
@@ -133,6 +203,7 @@ export const MergePanel = ({
     files.map((file, index) => ({ id: `${file.name}-${file.lastModified}-${index}`, fileIndex: index }))
   );
   const [pageCounts, setPageCounts] = useState<Record<number, number>>({});
+  const [thumbnails, setThumbnails] = useState<Record<number, string>>({});
   const [ranges, setRanges] = useState<Record<string, string>>({});
   const [rangeErrors, setRangeErrors] = useState<Record<string, boolean>>({});
 
@@ -144,19 +215,22 @@ export const MergePanel = ({
     let cancelled = false;
 
     const loadCounts = async () => {
-      const next: Record<number, number> = {};
+      const nextCounts: Record<number, number> = {};
+      const nextThumbs: Record<number, string> = {};
 
       for (let index = 0; index < files.length; index += 1) {
         try {
           const bytes = new Uint8Array(await files[index].arrayBuffer());
-          next[index] = await getPageCount(bytes);
+          nextCounts[index] = await getPageCount(bytes);
+          nextThumbs[index] = await renderThumbnail(bytes, 1);
         } catch {
-          next[index] = 1;
+          nextCounts[index] = 1;
         }
       }
 
       if (!cancelled) {
-        setPageCounts(next);
+        setPageCounts(nextCounts);
+        setThumbnails(nextThumbs);
       }
     };
 
@@ -195,6 +269,24 @@ export const MergePanel = ({
 
   const hasRangeErrors = Object.values(rangeErrors).some(Boolean);
 
+  const buildSelections = (): { selections: MergeSelection[]; hasErrors: boolean } => {
+    const nextErrors: Record<string, boolean> = {};
+    const selections = items.map((item) => {
+      const parsed = parsePageRanges(ranges[item.id] ?? "", pageCounts[item.fileIndex]);
+      nextErrors[item.id] = parsed.invalid;
+      return {
+        fileIndex: item.fileIndex,
+        ranges: parsed.ranges
+      };
+    });
+
+    setRangeErrors(nextErrors);
+    return {
+      selections,
+      hasErrors: Object.values(nextErrors).some(Boolean)
+    };
+  };
+
   return (
     <section className="space-y-4 rounded-brutal border-2 border-ink bg-surface p-4 shadow-brutal">
       <div>
@@ -211,14 +303,19 @@ export const MergePanel = ({
                 item={entry.item}
                 file={entry.file as File}
                 pageCount={pageCounts[entry.item.fileIndex] ?? null}
+                thumbnail={thumbnails[entry.item.fileIndex]}
                 rangeValue={ranges[entry.item.id] ?? ""}
                 rangeError={rangeErrors[entry.item.id] ?? false}
                 onRangeChange={(next) => {
                   setRanges((current) => ({ ...current, [entry.item.id]: next }));
+                  setRangeErrors((current) => ({
+                    ...current,
+                    [entry.item.id]: parsePageRanges(next, pageCounts[entry.item.fileIndex]).invalid
+                  }));
                 }}
                 onRangeBlur={() => {
                   const value = ranges[entry.item.id] ?? "";
-                  const invalid = value.length > 0 && !RANGE_REGEX.test(value);
+                  const invalid = parsePageRanges(value, pageCounts[entry.item.fileIndex]).invalid;
                   setRangeErrors((current) => ({ ...current, [entry.item.id]: invalid }));
                 }}
                 onRemove={() => onRemoveFile(entry.item.fileIndex)}
@@ -251,12 +348,37 @@ export const MergePanel = ({
         loading={isProcessing}
         disabled={!orderedFiles.length || hasRangeErrors}
         onClick={() => {
-          const order = items.map((item) => item.fileIndex);
-          void onMerge(order);
+          const { selections, hasErrors } = buildSelections();
+          if (hasErrors) {
+            return;
+          }
+
+          void onMerge(selections);
         }}
       >
         Merge and Download
       </Button>
+
+      {onSaveToSandbox ? (
+        <Button
+          type="button"
+          className="w-full"
+          size="lg"
+          variant="secondary"
+          loading={isProcessing}
+          disabled={!orderedFiles.length || hasRangeErrors}
+          onClick={() => {
+            const { selections, hasErrors } = buildSelections();
+            if (hasErrors) {
+              return;
+            }
+
+            void onSaveToSandbox(selections);
+          }}
+        >
+          Save merged PDF to Sandbox
+        </Button>
+      ) : null}
     </section>
   );
 };

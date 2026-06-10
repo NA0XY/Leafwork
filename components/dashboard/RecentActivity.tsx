@@ -3,6 +3,7 @@
 import {
   EyeOff,
   FileText,
+  FolderKanban,
   Image,
   Layers,
   Minimize2,
@@ -19,6 +20,7 @@ import { activityUpdatedEvent, readRecentActivity, recentActivityStorageKey, typ
 import { timeAgo, truncateFilename } from "@/lib/utils/format";
 
 const iconMap: Record<string, ComponentType<{ className?: string }>> = {
+  sandbox: FolderKanban,
   merge: Layers,
   split: Scissors,
   compress: Minimize2,
