@@ -6,7 +6,7 @@ import { AI_INPUT_CHAR_LIMIT, clampTextForAI } from "@/lib/ai/input-limits";
 import { PII_DETECTION_SYSTEM } from "@/lib/ai/prompts";
 import { getSupabaseServiceClient } from "@/lib/auth/supabase-service";
 import { detectPiiInputSchema, validateAndParse } from "@/lib/validations/api";
-import { jsonError, parseJsonBody } from "@/lib/utils/api";
+import { getJsonBodyErrorResponse, jsonError, parseJsonBody } from "@/lib/utils/api";
 import { logger } from "@/lib/utils/logger";
 
 type PiiDetection = {
@@ -55,11 +55,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       requestId,
       error: parsedBody.error
     });
-    return jsonError(400, {
-      code: "INVALID_JSON",
-      message: parsedBody.error,
-      requestId
-    });
+    return getJsonBodyErrorResponse(parsedBody, requestId);
   }
 
   const validated = validateAndParse(detectPiiInputSchema, parsedBody.data);

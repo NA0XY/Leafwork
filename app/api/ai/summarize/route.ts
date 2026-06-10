@@ -5,7 +5,7 @@ import { nonStreamCompletion } from "@/lib/ai/groq";
 import { AI_INPUT_CHAR_LIMIT, clampTextForAI } from "@/lib/ai/input-limits";
 import { SUMMARIZE_SYSTEM } from "@/lib/ai/prompts";
 import { summarizeInputSchema, validateAndParse } from "@/lib/validations/api";
-import { jsonError, parseJsonBody } from "@/lib/utils/api";
+import { getJsonBodyErrorResponse, jsonError, parseJsonBody } from "@/lib/utils/api";
 import { logger } from "@/lib/utils/logger";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -31,11 +31,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       requestId,
       error: parsedBody.error
     });
-    return jsonError(400, {
-      code: "INVALID_JSON",
-      message: parsedBody.error,
-      requestId
-    });
+    return getJsonBodyErrorResponse(parsedBody, requestId);
   }
 
   const validated = validateAndParse(summarizeInputSchema, parsedBody.data);

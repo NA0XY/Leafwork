@@ -1,24 +1,21 @@
 "use client";
 
 import { withPdfLib } from "@/lib/pdf/engine";
-import { clonePdfBytes, loadPdfJs } from "@/lib/pdf/pdfjs";
+import { compressEmbeddedImages } from "@/lib/pdf/compression/embedded-images";
+import { composeHybridPdf, getScaleCandidates, preparePagePlans } from "@/lib/pdf/compression/raster-fallback";
+import {
+  MAX_ITERATIONS,
+  MAX_QUALITY,
+  MIN_QUALITY_IMAGE_DOC,
+  MIN_QUALITY_RASTER_AGGRESSIVE,
+  MIN_REDUCTION_BEFORE_FALLBACK,
+  PRESERVE_SELECTABLE_TEXT,
+  type CompressOutput,
+  type ProgressCallback
+} from "@/lib/pdf/compression/types";
+import { validatePdfBytes, validateRenderedPdfBytes } from "@/lib/pdf/compression/validation";
 import { PDFEngineError, PDFEngineErrorCode, type CompressionTarget, type ProcessingResult } from "@/lib/pdf/types";
 import { logger } from "@/lib/utils/logger";
-
-type ProgressCallback = (percent: number) => void;
-
-type CompressOutput = {
-  blob: Blob;
-  originalBytes: number;
-  compressedBytes: number;
-  quality: number;
-  iterationsUsed: number;
-};
-
-const MIN_QUALITY = 0.3;
-const MAX_QUALITY = 0.9;
-const MAX_ITERATIONS = 8;
-const PRESERVE_SELECTABLE_TEXT = true;
 
 const toResult = <T>(data: T | null, error: PDFEngineError | null, startedAt: number): ProcessingResult<T> => ({
   data,
@@ -36,27 +33,35 @@ const getTargetBytes = (target: CompressionTarget, originalBytes: number): numbe
   }
 
   if (target.quality && target.quality > 0) {
-    return Math.floor(originalBytes * Math.max(MIN_QUALITY, Math.min(MAX_QUALITY, target.quality)));
+    return Math.floor(originalBytes * Math.max(MIN_QUALITY_IMAGE_DOC, Math.min(MAX_QUALITY, target.quality)));
   }
 
   return Math.floor(originalBytes * 0.7);
 };
 
-const optimizeWithPdfLib = async (bytes: Uint8Array): Promise<Uint8Array> => {
+const optimizeWithPdfLib = async (bytes: Uint8Array, stripMetadata: boolean): Promise<Uint8Array> => {
   const result = await withPdfLib(async (pdfLib) => {
     const doc = await pdfLib.PDFDocument.load(bytes, { ignoreEncryption: true });
 
-    doc.setProducer("Leafwork");
-    doc.setCreator("Leafwork");
+    if (stripMetadata) {
+      doc.setTitle("");
+      doc.setAuthor("");
+      doc.setSubject("");
+      doc.setKeywords([]);
+      const metadataRef = doc.catalog.get(pdfLib.PDFName.of("Metadata"));
+      if (metadataRef) {
+        doc.catalog.delete(pdfLib.PDFName.of("Metadata"));
+      }
+      doc.setProducer("");
+      doc.setCreator("");
+    }
 
-    const optimizedBytes = await doc.save({
+    return doc.save({
       useObjectStreams: true,
       addDefaultPage: false,
       updateFieldAppearances: false,
       objectsPerTick: 30
     });
-
-    return optimizedBytes;
   });
 
   if (!result.data) {
@@ -64,51 +69,6 @@ const optimizeWithPdfLib = async (bytes: Uint8Array): Promise<Uint8Array> => {
   }
 
   return result.data;
-};
-
-const renderAndFlattenPdf = async (bytes: Uint8Array, quality: number): Promise<Uint8Array> => {
-  const [pdfJs, pdfLib] = await Promise.all([
-    loadPdfJs(),
-    import("pdf-lib")
-  ]);
-
-  const { getDocument } = pdfJs;
-
-  // PDF.js can transfer/consume TypedArray buffers internally, so pass a fresh copy.
-  const loadingTask = getDocument({ data: clonePdfBytes(bytes) });
-  const source = await loadingTask.promise;
-  const output = await pdfLib.PDFDocument.create();
-
-  for (let pageNumber = 1; pageNumber <= source.numPages; pageNumber += 1) {
-    const sourcePage = await source.getPage(pageNumber);
-    const viewport = sourcePage.getViewport({ scale: 1.5 });
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-
-    if (!context) {
-      throw new Error("Unable to create canvas context for compression");
-    }
-
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
-
-    await sourcePage.render({ canvasContext: context, viewport }).promise;
-
-    const jpegDataUrl = canvas.toDataURL("image/jpeg", quality);
-    const imageBytes = Uint8Array.from(atob(jpegDataUrl.split(",")[1] ?? ""), (char) => char.charCodeAt(0));
-    const image = await output.embedJpg(imageBytes);
-    const outputPage = output.addPage([viewport.width, viewport.height]);
-
-    outputPage.drawImage(image, {
-      x: 0,
-      y: 0,
-      width: viewport.width,
-      height: viewport.height
-    });
-  }
-
-  await source.destroy();
-  return output.save({ useObjectStreams: true, addDefaultPage: false });
 };
 
 export const compressPDF = async (
@@ -126,14 +86,23 @@ export const compressPDF = async (
   try {
     const originalBytes = new Uint8Array(await file.arrayBuffer());
     const goalBytes = getTargetBytes(target, originalBytes.byteLength);
+    const shouldStripMetadata = target.stripMetadata ?? true;
+    const allowRasterization = target.allowRasterization ?? false;
+    const keepTextSharp = target.keepTextSharp ?? true;
+    const grayscale = target.grayscale ?? false;
+
     logger.debug("pdf.compress.input.ready", {
       fileName: file.name,
       originalBytes: originalBytes.byteLength,
-      goalBytes
+      goalBytes,
+      stripMetadata: shouldStripMetadata,
+      allowRasterization,
+      keepTextSharp,
+      grayscale
     });
 
     onProgress?.(10);
-    const stageOneBytes = await optimizeWithPdfLib(originalBytes);
+    const stageOneBytes = await optimizeWithPdfLib(originalBytes, shouldStripMetadata);
     const stageOneStableBytes = stageOneBytes.slice();
     logger.debug("pdf.compress.stage_one.complete", {
       fileName: file.name,
@@ -141,12 +110,56 @@ export const compressPDF = async (
     });
     onProgress?.(25);
 
-    let bestBytes = stageOneStableBytes;
+    let bestBytes = stageOneStableBytes.byteLength < originalBytes.byteLength ? stageOneStableBytes : originalBytes;
     let bestQuality = 1;
-    const flatteningAvailable = false;
-    const executedIterations = 0;
+    let bestScale = 1;
+    let usedRasterization = false;
+    let vectorTextPreserved = true;
+    let appliedGrayscale = false;
+    let executedIterations = 0;
 
-    if (PRESERVE_SELECTABLE_TEXT) {
+    const embeddedImageResult =
+      bestBytes.byteLength > goalBytes
+        ? await compressEmbeddedImages(
+            stageOneStableBytes,
+            goalBytes,
+            {
+              stripMetadata: shouldStripMetadata,
+              allowAggressiveCompression: allowRasterization,
+              grayscale
+            },
+            onProgress
+          )
+        : null;
+
+    if (embeddedImageResult && embeddedImageResult.bytes.byteLength < bestBytes.byteLength) {
+      bestBytes = embeddedImageResult.bytes;
+      bestQuality = embeddedImageResult.quality;
+      appliedGrayscale = grayscale;
+      logger.info("pdf.compress.embedded_images.selected", {
+        fileName: file.name,
+        compressedBytes: embeddedImageResult.bytes.byteLength,
+        optimizedImageCount: embeddedImageResult.optimizedImageCount,
+        attemptedImageCount: embeddedImageResult.attemptedImageCount,
+        goalBytes
+      });
+    } else {
+      logger.info("pdf.compress.embedded_images.skipped", {
+        fileName: file.name,
+        reason: bestBytes.byteLength <= goalBytes ? "already_under_target" : embeddedImageResult ? "candidate_not_smaller" : "no_optimizable_images"
+      });
+    }
+
+    const shouldTryRasterFallback =
+      allowRasterization &&
+      goalBytes < bestBytes.byteLength &&
+      (bestBytes.byteLength - goalBytes) / Math.max(1, bestBytes.byteLength) >= MIN_REDUCTION_BEFORE_FALLBACK;
+    const lastValidBytesBeforeRaster = bestBytes;
+    const lastValidQualityBeforeRaster = bestQuality;
+    const lastValidScaleBeforeRaster = bestScale;
+    const lastValidGrayscaleBeforeRaster = appliedGrayscale;
+
+    if (PRESERVE_SELECTABLE_TEXT && !shouldTryRasterFallback) {
       logger.info("pdf.compress.text_preserving_mode", {
         fileName: file.name,
         originalBytes: originalBytes.byteLength,
@@ -155,24 +168,131 @@ export const compressPDF = async (
         note: "Raster flattening disabled to preserve selectable text."
       });
     } else {
-      let low = MIN_QUALITY;
-      let high = MAX_QUALITY;
-      bestQuality = MIN_QUALITY;
-      for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration += 1) {
-        const quality = Number(((low + high) / 2).toFixed(4));
-        const flattened = await renderAndFlattenPdf(stageOneStableBytes, quality);
-        if (Math.abs(flattened.byteLength - goalBytes) < Math.abs(bestBytes.byteLength - goalBytes)) {
-          bestBytes = flattened;
-          bestQuality = quality;
+      const targetRatio = goalBytes / Math.max(1, stageOneStableBytes.byteLength);
+      const scaleCandidates = getScaleCandidates(targetRatio);
+      let bestUnderAnyScale: { bytes: Uint8Array; quality: number; scale: number } | null = null;
+      let smallestOverAnyScale: { bytes: Uint8Array; quality: number; scale: number } | null = null;
+      const totalSteps = scaleCandidates.length * MAX_ITERATIONS;
+      let currentStep = 0;
+
+      for (const scale of scaleCandidates) {
+        const pagePlans = await preparePagePlans(stageOneStableBytes, scale, { keepTextSharp });
+        const rasterPageCount = pagePlans.filter((page) => page.shouldRasterize).length;
+        const textRasterized = pagePlans.some((page) => page.hasSelectableText && page.shouldRasterize);
+        vectorTextPreserved = vectorTextPreserved && !textRasterized;
+        if (rasterPageCount === 0) {
+          logger.info("pdf.compress.hybrid.no_raster_candidates", {
+            fileName: file.name,
+            scale,
+            note: "No image-heavy pages found; keeping vector PDF to preserve text clarity."
+          });
+          break;
         }
-        if (flattened.byteLength <= goalBytes) {
-          low = quality;
-        } else {
-          high = quality;
+
+        usedRasterization = true;
+        const minQuality = keepTextSharp ? MIN_QUALITY_IMAGE_DOC : MIN_QUALITY_RASTER_AGGRESSIVE;
+        let low = minQuality;
+        let high = MAX_QUALITY;
+        let bestUnderThisScale: { bytes: Uint8Array; quality: number } | null = null;
+        let smallestOverThisScale: { bytes: Uint8Array; quality: number } | null = null;
+
+        for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration += 1) {
+          const quality = Number(((low + high) / 2).toFixed(4));
+          const flattened = await composeHybridPdf(stageOneStableBytes, pagePlans, quality, { keepTextSharp, grayscale });
+          executedIterations += 1;
+          currentStep += 1;
+
+          if (flattened.byteLength <= goalBytes) {
+            if (!bestUnderThisScale || flattened.byteLength > bestUnderThisScale.bytes.byteLength) {
+              bestUnderThisScale = { bytes: flattened, quality };
+            }
+            low = quality;
+          } else {
+            if (!smallestOverThisScale || flattened.byteLength < smallestOverThisScale.bytes.byteLength) {
+              smallestOverThisScale = { bytes: flattened, quality };
+            }
+            high = quality;
+          }
+
+          onProgress?.(25 + Math.round((currentStep / totalSteps) * 70));
         }
-        onProgress?.(25 + Math.round((iteration / MAX_ITERATIONS) * 70));
+
+        if (bestUnderThisScale) {
+          bestUnderAnyScale = {
+            bytes: bestUnderThisScale.bytes,
+            quality: bestUnderThisScale.quality,
+            scale
+          };
+          break;
+        }
+
+        if (smallestOverThisScale) {
+          if (!smallestOverAnyScale || smallestOverThisScale.bytes.byteLength < smallestOverAnyScale.bytes.byteLength) {
+            smallestOverAnyScale = {
+              bytes: smallestOverThisScale.bytes,
+              quality: smallestOverThisScale.quality,
+              scale
+            };
+          }
+        }
+      }
+
+      if (bestUnderAnyScale && bestUnderAnyScale.bytes.byteLength < bestBytes.byteLength) {
+        bestBytes = bestUnderAnyScale.bytes;
+        bestQuality = bestUnderAnyScale.quality;
+        bestScale = bestUnderAnyScale.scale;
+        appliedGrayscale = grayscale;
+      } else if (smallestOverAnyScale && smallestOverAnyScale.bytes.byteLength < bestBytes.byteLength) {
+        bestBytes = smallestOverAnyScale.bytes;
+        bestQuality = smallestOverAnyScale.quality;
+        bestScale = smallestOverAnyScale.scale;
+        appliedGrayscale = grayscale;
       }
     }
+
+    const hasValidStructure = await validatePdfBytes(originalBytes, bestBytes);
+    const hasValidRender = hasValidStructure
+      ? await validateRenderedPdfBytes(originalBytes, bestBytes, { expectTextPreserved: vectorTextPreserved })
+      : false;
+
+    if (!hasValidStructure || !hasValidRender) {
+      logger.warn("pdf.compress.candidate.validation_failed", {
+        fileName: file.name,
+        candidateBytes: bestBytes.byteLength,
+        fallbackBytes: stageOneStableBytes.byteLength,
+        hasValidStructure,
+        hasValidRender
+      });
+      bestBytes = stageOneStableBytes;
+      if (lastValidBytesBeforeRaster.byteLength < stageOneStableBytes.byteLength) {
+        bestBytes = lastValidBytesBeforeRaster;
+        bestQuality = lastValidQualityBeforeRaster;
+        bestScale = lastValidScaleBeforeRaster;
+        appliedGrayscale = lastValidGrayscaleBeforeRaster;
+      } else {
+        bestQuality = 1;
+        bestScale = 1;
+        appliedGrayscale = false;
+      }
+      usedRasterization = false;
+      vectorTextPreserved = true;
+    }
+
+    if (bestBytes.byteLength > originalBytes.byteLength) {
+      logger.warn("pdf.compress.candidate.larger_than_original", {
+        fileName: file.name,
+        candidateBytes: bestBytes.byteLength,
+        originalBytes: originalBytes.byteLength
+      });
+      bestBytes = originalBytes;
+      bestQuality = 1;
+      bestScale = 1;
+      usedRasterization = false;
+      vectorTextPreserved = true;
+      appliedGrayscale = false;
+    }
+
+    const hitTarget = bestBytes.byteLength <= goalBytes;
 
     onProgress?.(100);
     logger.info("pdf.compress.success", {
@@ -180,8 +300,15 @@ export const compressPDF = async (
       originalBytes: originalBytes.byteLength,
       compressedBytes: bestBytes.byteLength,
       goalBytes,
+      hitTarget,
       bestQuality,
-      flatteningAvailable: !PRESERVE_SELECTABLE_TEXT && flatteningAvailable,
+      bestScale,
+      flatteningAvailable: allowRasterization,
+      keepTextSharp,
+      grayscale,
+      appliedGrayscale,
+      usedRasterization,
+      vectorTextPreserved,
       iterationsUsed: executedIterations
     });
 
@@ -191,7 +318,13 @@ export const compressPDF = async (
         originalBytes: originalBytes.byteLength,
         compressedBytes: bestBytes.byteLength,
         quality: Number(bestQuality.toFixed(2)),
-        iterationsUsed: executedIterations
+        iterationsUsed: executedIterations,
+        usedRasterization,
+        targetBytes: goalBytes,
+        hitTarget,
+        renderScale: Number(bestScale.toFixed(2)),
+        vectorTextPreserved,
+        usedGrayscale: appliedGrayscale
       },
       null,
       startedAt
@@ -229,6 +362,3 @@ export const estimateCompressibility = (file: File): "high" | "medium" | "low" =
 
   return "low";
 };
-
-
-

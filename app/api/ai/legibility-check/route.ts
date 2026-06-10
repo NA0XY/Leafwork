@@ -4,7 +4,7 @@ import { enforceGroqAccess } from "@/lib/ai/groq-access";
 import { nonStreamCompletion } from "@/lib/ai/groq";
 import { LEGIBILITY_CHECK_SYSTEM } from "@/lib/ai/prompts";
 import { legibilityInputSchema, validateAndParse } from "@/lib/validations/api";
-import { jsonError, parseJsonBody } from "@/lib/utils/api";
+import { getJsonBodyErrorResponse, jsonError, parseJsonBody } from "@/lib/utils/api";
 import { logger } from "@/lib/utils/logger";
 
 type LegibilityResponse = {
@@ -42,11 +42,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       requestId,
       error: parsedBody.error
     });
-    return jsonError(400, {
-      code: "INVALID_JSON",
-      message: parsedBody.error,
-      requestId
-    });
+    return getJsonBodyErrorResponse(parsedBody, requestId);
   }
 
   const validated = validateAndParse(legibilityInputSchema, parsedBody.data);

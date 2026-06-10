@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getUser } from "@/lib/auth/supabase-server";
 import { applyRateLimit, authAiLimiter } from "@/lib/rate-limit/upstash";
-import { jsonError } from "@/lib/utils/api";
+import { jsonError, resolveClientIp } from "@/lib/utils/api";
 import { logger } from "@/lib/utils/logger";
 
 type GroqAccess =
@@ -14,12 +14,6 @@ type GroqAccess =
       ok: false;
       response: NextResponse;
     };
-
-const resolveClientIp = (request: NextRequest): string => {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const forwardedIp = forwarded?.split(",")[0]?.trim();
-  return forwardedIp || request.ip || "0.0.0.0";
-};
 
 export const enforceGroqAccess = async (
   request: NextRequest,

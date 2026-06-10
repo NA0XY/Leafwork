@@ -14,6 +14,12 @@ type CompressResult = {
   compressedBytes: number;
   quality: number;
   iterationsUsed: number;
+  usedRasterization: boolean;
+  targetBytes: number;
+  hitTarget: boolean;
+  renderScale: number;
+  vectorTextPreserved: boolean;
+  usedGrayscale: boolean;
 };
 
 type CompressPanelProps = {
@@ -23,7 +29,13 @@ type CompressPanelProps = {
   downloadComplete: boolean;
   error: string | null;
   onRemoveFile: () => void;
-  onCompress: (targetKB: number, stripMetadata: boolean) => Promise<CompressResult | null>;
+  onCompress: (
+    targetKB: number,
+    stripMetadata: boolean,
+    allowAggressiveCompression: boolean,
+    grayscale: boolean,
+    preserveSelectableText: boolean
+  ) => Promise<CompressResult | null>;
 };
 
 export const CompressPanel = ({
@@ -38,7 +50,9 @@ export const CompressPanel = ({
   const [targetValue, setTargetValue] = useState<string>("");
   const [unit, setUnit] = useState<"KB" | "MB">("KB");
   const [stripMetadata, setStripMetadata] = useState(true);
+  const [allowAggressiveCompression, setAllowAggressiveCompression] = useState(false);
   const [grayscale, setGrayscale] = useState(false);
+  const [preserveSelectableText, setPreserveSelectableText] = useState(true);
   const [result, setResult] = useState<CompressResult | null>(null);
 
   const targetKB = useMemo(() => {
@@ -74,7 +88,16 @@ export const CompressPanel = ({
     return {
       original: formatBytes(result.originalBytes),
       compressed: formatBytes(result.compressedBytes),
-      reduction
+      reduction,
+      usedRasterization: result.usedRasterization,
+      hitTarget: result.hitTarget,
+      target: formatBytes(result.targetBytes),
+      vectorTextPreserved: result.vectorTextPreserved,
+      usedGrayscale: result.usedGrayscale,
+      quality: result.quality,
+      renderScale: result.renderScale,
+      iterationsUsed: result.iterationsUsed,
+      returnedOriginal: result.compressedBytes >= result.originalBytes
     };
   }, [result]);
 
@@ -150,7 +173,22 @@ export const CompressPanel = ({
               <input type="checkbox" checked={grayscale} onChange={(event) => setGrayscale(event.target.checked)} />
               Convert to grayscale
             </label>
-            {grayscale ? <p className="text-xs text-muted">Grayscale conversion is planned and not yet active.</p> : null}
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={preserveSelectableText}
+                onChange={(event) => setPreserveSelectableText(event.target.checked)}
+              />
+              Preserve selectable text
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={allowAggressiveCompression}
+                onChange={(event) => setAllowAggressiveCompression(event.target.checked)}
+              />
+              Aggressive compression (may reduce text/image quality)
+            </label>
           </div>
         </details>
 
@@ -163,7 +201,7 @@ export const CompressPanel = ({
             loading={isProcessing}
             disabled={!targetKB}
             onClick={async () => {
-              const next = await onCompress(targetKB, stripMetadata);
+              const next = await onCompress(targetKB, stripMetadata, allowAggressiveCompression, grayscale, preserveSelectableText);
               if (next) {
                 setResult(next);
               }
@@ -187,11 +225,33 @@ export const CompressPanel = ({
           <p className="text-sm font-semibold">
             Original: {compressionSummary.original} to Compressed: {compressionSummary.compressed} ({compressionSummary.reduction.toFixed(1)}% reduction)
           </p>
+          {!compressionSummary.hitTarget ? (
+            <p className="mt-1 text-sm text-ink">
+              Could not reach target of {compressionSummary.target} with current settings.
+            </p>
+          ) : null}
+          {compressionSummary.returnedOriginal ? (
+            <p className="mt-1 text-sm text-ink">
+              No smaller safe output found.
+            </p>
+          ) : null}
           <div className="mt-2 flex items-center gap-2">
-            <Badge tone={compressionSummary.reduction > 75 ? "warning" : "success"}>
-              {compressionSummary.reduction > 75 ? "Warning: Text may be affected" : "Legibility: Good"}
+            <Badge
+              tone={
+                compressionSummary.usedRasterization && !compressionSummary.vectorTextPreserved
+                  ? "warning"
+                  : "success"
+              }
+            >
+              {compressionSummary.usedRasterization && !compressionSummary.vectorTextPreserved
+                ? "Warning: Text may be affected"
+                : "Text remains sharp"}
             </Badge>
+            {compressionSummary.usedGrayscale ? <Badge tone="warning">Grayscale applied</Badge> : null}
           </div>
+          <p className="mt-2 text-xs text-muted">
+            Quality {compressionSummary.quality.toFixed(2)} | Scale {compressionSummary.renderScale.toFixed(2)} | Passes {compressionSummary.iterationsUsed}
+          </p>
         </section>
       ) : null}
     </div>

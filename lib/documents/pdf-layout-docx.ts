@@ -1,14 +1,31 @@
 "use client";
 
+import {
+  Document,
+  FrameAnchorType,
+  FrameWrap,
+  HeightRule,
+  Packer,
+  Paragraph,
+  TextRun,
+  type ISectionOptions
+} from "docx";
+
 import { clonePdfBytes, loadPdfJs } from "@/lib/pdf/pdfjs";
 
-const escapeHtml = (value: string): string =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+const PDF_VIEWPORT_SCALE = 1.35;
+const TWIPS_PER_CSS_PIXEL = 15;
+const PAGE_PADDING_TWIPS = 720;
+
+type PdfTextItem = {
+  str?: string;
+  transform?: number[];
+  height?: number;
+  width?: number;
+};
+
+const cssPxToTwips = (value: number): number => Math.max(1, Math.round(value * TWIPS_PER_CSS_PIXEL));
+const cssPxToHalfPoints = (value: number): number => Math.max(8, Math.round(value * 1.5));
 
 export const pdfToLayoutDocxBlob = async (bytes: Uint8Array): Promise<Blob> => {
   const pdfjs = await loadPdfJs();
@@ -16,24 +33,18 @@ export const pdfToLayoutDocxBlob = async (bytes: Uint8Array): Promise<Blob> => {
   const pdf = await loadingTask.promise;
 
   try {
-    const pageHtml: string[] = [];
+    const sections: ISectionOptions[] = [];
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber);
-      const viewport = page.getViewport({ scale: 1.35 });
+      const viewport = page.getViewport({ scale: PDF_VIEWPORT_SCALE });
       const textContent = await page.getTextContent();
-
-      const itemsHtml = (textContent.items as Array<{
-        str?: string;
-        transform?: number[];
-        height?: number;
-        width?: number;
-      }>)
+      const paragraphs = (textContent.items as PdfTextItem[])
         .map((item) => {
           const raw = item.str ?? "";
           const str = raw.trim();
           if (!str) {
-            return "";
+            return null;
           }
 
           const transform = Array.isArray(item.transform) ? item.transform : [1, 0, 0, 1, 0, 0];
@@ -41,62 +52,55 @@ export const pdfToLayoutDocxBlob = async (bytes: Uint8Array): Promise<Blob> => {
           const y = transform[5] ?? 0;
           const height = Math.max(8, item.height ?? 12);
           const width = Math.max(1, item.width ?? str.length * (height * 0.45));
-          const angle = Math.atan2(transform[1] ?? 0, transform[0] ?? 1);
-          const rotationDeg = (angle * 180) / Math.PI;
           const top = viewport.height - y - height;
 
-          return `<div class="text-item" style="left:${x.toFixed(2)}px;top:${top.toFixed(
-            2
-          )}px;width:${width.toFixed(2)}px;font-size:${height.toFixed(2)}px;transform:rotate(${rotationDeg.toFixed(
-            2
-          )}deg);">${escapeHtml(raw)}</div>`;
+          return new Paragraph({
+            frame: {
+              type: "absolute",
+              position: {
+                x: PAGE_PADDING_TWIPS + cssPxToTwips(x),
+                y: PAGE_PADDING_TWIPS + cssPxToTwips(top)
+              },
+              width: cssPxToTwips(width),
+              height: cssPxToTwips(height * 1.25),
+              anchor: {
+                horizontal: FrameAnchorType.PAGE,
+                vertical: FrameAnchorType.PAGE
+              },
+              wrap: FrameWrap.NONE,
+              rule: HeightRule.EXACT
+            },
+            spacing: { before: 0, after: 0 },
+            children: [
+              new TextRun({
+                text: raw,
+                size: cssPxToHalfPoints(height),
+                font: "Times New Roman"
+              })
+            ]
+          });
         })
-        .filter(Boolean)
-        .join("");
+        .filter((paragraph): paragraph is Paragraph => paragraph !== null);
 
-      pageHtml.push(
-        `<section class="pdf-page" style="width:${viewport.width.toFixed(2)}px;height:${viewport.height.toFixed(
-          2
-        )}px;">${itemsHtml}</section>`
-      );
+      sections.push({
+        properties: {
+          page: {
+            size: {
+              width: cssPxToTwips(viewport.width) + PAGE_PADDING_TWIPS * 2,
+              height: cssPxToTwips(viewport.height) + PAGE_PADDING_TWIPS * 2
+            },
+            margin: { top: 0, right: 0, bottom: 0, left: 0 }
+          }
+        },
+        children: paragraphs.length > 0 ? paragraphs : [new Paragraph("")]
+      });
     }
 
-    const html = `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <style>
-      body {
-        margin: 0;
-        padding: 12px;
-        font-family: "Times New Roman", serif;
-        background: #ffffff;
-      }
-      .pdf-page {
-        position: relative;
-        margin: 0 auto 18px auto;
-        border: 1px solid #e5e7eb;
-        background: #ffffff;
-        overflow: hidden;
-      }
-      .text-item {
-        position: absolute;
-        white-space: pre;
-        line-height: 1;
-        transform-origin: left top;
-      }
-    </style>
-  </head>
-  <body>
-    ${pageHtml.join("")}
-  </body>
-</html>`;
-
-    const htmlDocx = (await import("html-docx-js/dist/html-docx")).default;
-    return htmlDocx.asBlob(html, {
-      orientation: "portrait",
-      margins: { top: 720, right: 720, bottom: 720, left: 720 }
+    const doc = new Document({
+      sections
     });
+
+    return Packer.toBlob(doc);
   } finally {
     await pdf.destroy();
   }

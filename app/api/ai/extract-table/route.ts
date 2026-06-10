@@ -6,7 +6,7 @@ import { AI_INPUT_CHAR_LIMIT, clampTextForAI } from "@/lib/ai/input-limits";
 import { nonStreamCompletion } from "@/lib/ai/groq";
 import { TABLE_EXTRACTION_SYSTEM } from "@/lib/ai/prompts";
 import { extractTableInputSchema, validateAndParse } from "@/lib/validations/api";
-import { jsonError, parseJsonBody } from "@/lib/utils/api";
+import { getJsonBodyErrorResponse, jsonError, parseJsonBody } from "@/lib/utils/api";
 import { logger } from "@/lib/utils/logger";
 
 const parseCsv = (csv: string): { valid: boolean; rows: string[][]; columns: number } => {
@@ -52,11 +52,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       requestId,
       error: parsedBody.error
     });
-    return jsonError(400, {
-      code: "INVALID_JSON",
-      message: parsedBody.error,
-      requestId
-    });
+    return getJsonBodyErrorResponse(parsedBody, requestId);
   }
 
   const validated = validateAndParse(extractTableInputSchema, parsedBody.data);
