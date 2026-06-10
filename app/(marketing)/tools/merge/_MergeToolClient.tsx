@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
 import { MergePanel } from "@/components/tools/MergePanel";
@@ -11,20 +11,21 @@ import { usePDFEngine } from "@/hooks/usePDFEngine";
 import { usePendingFiles } from "@/hooks/usePendingFiles";
 import { useToast } from "@/hooks/useToast";
 import { mergePDFs } from "@/lib/pdf/merge";
+import { cn } from "@/lib/utils/cn";
+import { checkMagicBytes } from "@/lib/validations/file";
 import { useCanvasStore } from "@/store/canvas-store";
-import { useSandboxStore } from "@/store/sandbox-store";
+import { getSandboxNativeFiles, SANDBOX_FILE_DRAG_MIME, useSandboxStore } from "@/store/sandbox-store";
 
-const PDF_MAGIC = "%PDF-";
-
-const readMagicBytes = async (file: File): Promise<string> => {
-  const chunk = await file.slice(0, 5).arrayBuffer();
-  return new TextDecoder("latin1").decode(chunk);
+const isPdfFile = async (file: File): Promise<boolean> => {
+  const chunk = await file.slice(0, 1024).arrayBuffer();
+  return checkMagicBytes(chunk);
 };
 
 export const MergeToolClient = () => {
   const pendingFiles = usePendingFiles();
   const [files, setFiles] = useState<File[]>([]);
   const [savingToSandbox, setSavingToSandbox] = useState(false);
+  const [isDropActive, setIsDropActive] = useState(false);
   const pdf = usePDFEngine();
   const toast = useToast();
   const clearPending = useCanvasStore((state) => state.clearPendingFileNames);
@@ -39,28 +40,75 @@ export const MergeToolClient = () => {
     }
   }, [clearPending, pendingFiles]);
 
+  const appendValidatedFiles = useCallback(
+    async (incoming: File[]) => {
+      if (!incoming.length) {
+        return;
+      }
+
+      const validated: File[] = [];
+      let skipped = 0;
+
+      for (const file of incoming) {
+        if (await isPdfFile(file)) {
+          validated.push(file);
+        } else {
+          skipped += 1;
+        }
+      }
+
+      if (validated.length) {
+        setFiles((current) => [...current, ...validated]);
+      }
+
+      if (skipped) {
+        toast.error("Some files were skipped", "Merge accepts PDF files only.");
+      }
+    },
+    [toast]
+  );
+
+  const getDroppedFiles = useCallback(
+    (event: DragEvent<HTMLDivElement>): File[] => {
+      const sandboxPayload = event.dataTransfer.getData(SANDBOX_FILE_DRAG_MIME);
+      if (!sandboxPayload) {
+        return Array.from(event.dataTransfer.files ?? []);
+      }
+
+      try {
+        const fileIds = JSON.parse(sandboxPayload) as string[];
+        return getSandboxNativeFiles(fileIds);
+      } catch {
+        toast.error("Unable to read sandbox files", "Try dragging the file from storage again.");
+        return [];
+      }
+    },
+    [toast]
+  );
+
   const handleAddMore = async (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
-    const selected = Array.from(input.files ?? []);
-    if (!selected.length) {
-      input.value = "";
+    await appendValidatedFiles(Array.from(input.files ?? []));
+    input.value = "";
+  };
+
+  const handleDropMore = useCallback(
+    async (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDropActive(false);
+      await appendValidatedFiles(getDroppedFiles(event));
+    },
+    [appendValidatedFiles, getDroppedFiles]
+  );
+
+  const handleDragLeave = useCallback((event: DragEvent<HTMLDivElement>) => {
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
       return;
     }
 
-    const validated: File[] = [];
-    for (const file of selected) {
-      const magic = await readMagicBytes(file);
-      if (magic === PDF_MAGIC) {
-        validated.push(file);
-      }
-    }
-
-    if (validated.length) {
-      setFiles((current) => [...current, ...validated]);
-    }
-
-    input.value = "";
-  };
+    setIsDropActive(false);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -72,12 +120,29 @@ export const MergeToolClient = () => {
           }}
         />
       ) : (
-        <>
-          <div className="flex justify-end">
-            <Button type="button" size="sm" variant="secondary" onClick={() => addInputRef.current?.click()}>
-              <Plus className="h-3.5 w-3.5" />
-              Add more PDFs
-            </Button>
+        <div
+          className="space-y-4"
+          onDragOver={(event) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+            setIsDropActive(true);
+          }}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDropMore}
+        >
+          <div
+            className={cn(
+              "rounded-brutal border-2 border-dashed border-ink bg-surface p-3 transition-colors",
+              isDropActive && "border-primary bg-green-100"
+            )}
+          >
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold text-muted">Drop more PDFs here from storage or your desktop.</p>
+              <Button type="button" size="sm" variant="secondary" onClick={() => addInputRef.current?.click()}>
+                <Plus className="h-3.5 w-3.5" />
+                Add more PDFs
+              </Button>
+            </div>
             <input
               ref={addInputRef}
               type="file"
@@ -124,7 +189,7 @@ export const MergeToolClient = () => {
               }
             }}
           />
-        </>
+        </div>
       )}
     </div>
   );
