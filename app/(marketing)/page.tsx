@@ -1,21 +1,31 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import Script from "next/script";
 
+import { AnswerBlocks } from "@/components/landing/AnswerBlocks";
 import { WhyLeafworkDifferent } from "@/components/landing/ComparisonTable";
 import { FeatureGrid } from "@/components/landing/FeatureGrid";
 import { Hero } from "@/components/landing/Hero";
 import { ToolGrid } from "@/components/landing/ToolGrid";
-import { canonicalUrl, generateSoftwareAppSchema } from "@/lib/utils/seo";
+import {
+  HOMEPAGE_FAQS,
+  canonicalUrl,
+  generateFAQSchema,
+  generateOrganizationSchema,
+  generateSoftwareAppSchema,
+  generateWebsiteSchema,
+  serializeJsonLd
+} from "@/lib/utils/seo";
 
 export const metadata: Metadata = {
   title: "Leafwork - Free PDF Tools. Your Files Never Leave Your Browser.",
   description:
-    "Free browser-based PDF tools to merge, split, compress, watermark, sign, redact, and summarize documents.",
+    "Free browser-based PDF tools to merge, split, watermark, sign, redact, rotate, convert images, and clean metadata.",
   keywords: [
     "free pdf tools",
     "merge pdf",
     "split pdf",
-    "compress pdf",
+    "remove pdf metadata",
+    "redact pdf",
     "pdf tools no upload",
     "privacy first pdf"
   ],
@@ -25,30 +35,12 @@ export const metadata: Metadata = {
 };
 
 export default function MarketingHomePage() {
-  const orgSchema = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: "Leafwork",
-    url: canonicalUrl("/"),
-    logo: canonicalUrl("/icon-512.png")
-  };
-
-  const websiteSchema = {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: "Leafwork",
-    alternateName: "Leafwork PDF Tools",
-    url: canonicalUrl("/"),
-    potentialAction: {
-      "@type": "SearchAction",
-      target: `${canonicalUrl("/tools")}?q={search_term_string}`,
-      "query-input": "required name=search_term_string"
-    }
-  };
+  const softwareSchema = generateSoftwareAppSchema();
 
   return (
     <div className="space-y-10">
       <Hero />
+      <AnswerBlocks />
       <FeatureGrid />
       <WhyLeafworkDifferent />
       <ToolGrid />
@@ -57,19 +49,27 @@ export default function MarketingHomePage() {
         id="homepage-org-schema"
         type="application/ld+json"
         strategy="beforeInteractive"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgSchema) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(generateOrganizationSchema()) }}
       />
       <Script
         id="homepage-website-schema"
         type="application/ld+json"
         strategy="beforeInteractive"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(generateWebsiteSchema()) }}
       />
+      {softwareSchema ? (
+        <Script
+          id="homepage-software-schema"
+          type="application/ld+json"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(softwareSchema) }}
+        />
+      ) : null}
       <Script
-        id="homepage-software-schema"
+        id="homepage-faq-schema"
         type="application/ld+json"
         strategy="beforeInteractive"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(generateSoftwareAppSchema()) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(generateFAQSchema(HOMEPAGE_FAQS)) }}
       />
     </div>
   );

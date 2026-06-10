@@ -1,7 +1,7 @@
 ﻿import type { Metadata } from "next";
 import Script from "next/script";
 
-import { canonicalUrl } from "@/lib/utils/seo";
+import { canonicalUrl, generateWebPageSchema, serializeJsonLd } from "@/lib/utils/seo";
 
 export const metadata: Metadata = {
   title: "About Leafwork",
@@ -11,18 +11,18 @@ export const metadata: Metadata = {
   }
 };
 
-const webPageSchema = {
-  "@context": "https://schema.org",
-  "@type": "WebPage",
+const webPageSchema = generateWebPageSchema({
+  type: "AboutPage",
   name: "About Leafwork",
   description: "Why Leafwork was built and how it processes files locally without uploads.",
-  url: canonicalUrl("/about")
-};
+  path: "/about",
+  aboutTrustFacts: true
+});
 
 const stack = [
   { name: "pdf-lib", desc: "PDF manipulation", href: "https://pdf-lib.js.org" },
   { name: "PDF.js", desc: "PDF rendering", href: "https://mozilla.github.io/pdf.js" },
-  { name: "Groq", desc: "AI inference", href: "https://groq.com" },
+  { name: "Groq", desc: "Future AI inference", href: "https://groq.com" },
   { name: "Supabase", desc: "Auth and database", href: "https://supabase.com" },
   { name: "Upstash", desc: "Rate limiting", href: "https://upstash.com" },
   { name: "Vercel", desc: "Hosting", href: "https://vercel.com" }
@@ -32,17 +32,17 @@ const principles = [
   {
     number: "01",
     title: "Your files stay on your machine.",
-    desc: "Merging, splitting, compressing, signing, and redacting run in your browser. Your file bytes are not uploaded for core tools."
+    desc: "Merging, splitting, converting, signing, and redacting run in your browser. Your file bytes are not uploaded for core tools."
   },
   {
     number: "02",
     title: "AI features use extracted text, not file bytes.",
-    desc: "When you choose AI conversion or summarization, only extracted text is sent to the model to generate output."
+    desc: "AI conversion and summarization are currently coming soon. When enabled, only extracted text will be sent to the model to generate output."
   },
   {
     number: "03",
     title: "Core tools are free with no account wall.",
-    desc: "All eleven PDF workflows are available without forced upload pipelines, subscriptions, or watermark traps."
+    desc: "Available core workflows are usable without forced upload pipelines, subscriptions, or watermark traps."
   }
 ] as const;
 
@@ -53,7 +53,7 @@ export default function AboutPage() {
         id="about-webpage-schema"
         type="application/ld+json"
         strategy="beforeInteractive"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageSchema) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(webPageSchema) }}
       />
 
       <article className="mx-auto max-w-3xl space-y-10">
@@ -72,7 +72,7 @@ export default function AboutPage() {
           <h2 className="mb-4 text-2xl font-bold">How it works</h2>
           <p className="leading-relaxed text-muted">
             Modern browsers can run high-performance document tooling directly in a tab. Leafwork uses that capability
-            to process PDFs locally while still giving fast previews, batch tools, and optional AI output.
+            to process PDFs locally while still giving fast previews, batch tools, and clean final exports.
           </p>
         </section>
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   EyeOff,
   FileText,
+  Images,
   Image,
   Layers,
   Minimize2,
@@ -15,8 +16,12 @@ import {
 import type { ComponentType } from "react";
 
 import { Badge } from "@/components/ui/Badge";
+import { getToolFeatureState } from "@/lib/config/features";
+import { cn } from "@/lib/utils/cn";
+import type { ToolSlug } from "@/lib/utils/seo";
 
 type ToolCard = {
+  slug: ToolSlug;
   title: string;
   href: string;
   description: string;
@@ -26,6 +31,7 @@ type ToolCard = {
 
 const tools: ToolCard[] = [
   {
+    slug: "merge",
     title: "Merge",
     href: "/tools/merge",
     description: "Combine multiple PDFs in custom order with drag-and-drop control.",
@@ -33,6 +39,7 @@ const tools: ToolCard[] = [
     icon: Layers
   },
   {
+    slug: "split",
     title: "Split",
     href: "/tools/split",
     description: "Split by range, every N pages, or selected pages with ZIP export.",
@@ -40,6 +47,7 @@ const tools: ToolCard[] = [
     icon: Scissors
   },
   {
+    slug: "compress",
     title: "Compress",
     href: "/tools/compress",
     description: "Target a smaller file size while monitoring output quality and readability.",
@@ -47,6 +55,7 @@ const tools: ToolCard[] = [
     icon: Minimize2
   },
   {
+    slug: "pdf-to-word",
     title: "PDF to Word",
     href: "/tools/pdf-to-word",
     description: "Extract layout-aware text and export editable output with AI assistance.",
@@ -54,6 +63,7 @@ const tools: ToolCard[] = [
     icon: FileText
   },
   {
+    slug: "pdf-to-images",
     title: "PDF to Images",
     href: "/tools/pdf-to-images",
     description: "Convert selected pages to JPG or PNG with quality controls.",
@@ -61,6 +71,15 @@ const tools: ToolCard[] = [
     icon: Image
   },
   {
+    slug: "images-to-pdf",
+    title: "Images to PDF",
+    href: "/tools/images-to-pdf",
+    description: "Convert multiple PNG or JPG images into one PDF or separate PDFs.",
+    badge: "Export",
+    icon: Images
+  },
+  {
+    slug: "watermark",
     title: "Watermark",
     href: "/tools/watermark",
     description: "Add text or image watermarks with live page placement preview.",
@@ -68,6 +87,7 @@ const tools: ToolCard[] = [
     icon: Stamp
   },
   {
+    slug: "sign",
     title: "Sign",
     href: "/tools/sign",
     description: "Draw, type, or upload signatures and place them precisely on any page.",
@@ -75,6 +95,7 @@ const tools: ToolCard[] = [
     icon: PenLine
   },
   {
+    slug: "redact",
     title: "Redact",
     href: "/tools/redact",
     description: "Redact sensitive content with visual page targeting and permanent output.",
@@ -82,6 +103,7 @@ const tools: ToolCard[] = [
     icon: EyeOff
   },
   {
+    slug: "rotate",
     title: "Rotate",
     href: "/tools/rotate",
     description: "Rotate all pages or assign different rotation angles to selected pages.",
@@ -89,6 +111,7 @@ const tools: ToolCard[] = [
     icon: RotateCw
   },
   {
+    slug: "metadata-strip",
     title: "Metadata Strip",
     href: "/tools/metadata-strip",
     description: "Remove hidden author and producer metadata before sharing files.",
@@ -96,6 +119,7 @@ const tools: ToolCard[] = [
     icon: ShieldOff
   },
   {
+    slug: "summarize",
     title: "Summarize",
     href: "/tools/summarize",
     description: "Generate AI summaries with key points, figures, and action items.",
@@ -119,22 +143,43 @@ export const ToolGrid = () => (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {tools.map((tool) => {
         const Icon = tool.icon;
+        const feature = getToolFeatureState(tool.slug);
+        const content = (
+          <>
+            <div className="mb-3 flex items-center justify-between">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-brutal border-2 border-ink bg-paper">
+                <Icon className="h-4 w-4 text-primary" />
+              </span>
+              <Badge tone={feature.enabled ? undefined : "warning"}>{feature.enabled ? tool.badge : feature.label}</Badge>
+            </div>
+            <h3 className="text-lg font-bold">{tool.title}</h3>
+            <p className="mt-2 text-sm text-muted">{tool.description}</p>
+            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-primary">
+              {feature.enabled ? "Open tool" : feature.label}
+            </p>
+          </>
+        );
+
+        const className = cn(
+          "group rounded-brutal border-2 border-ink bg-surface p-4 shadow-brutal transition-all duration-100",
+          feature.enabled ? "hover:-translate-y-0.5 hover:bg-green-50" : "cursor-not-allowed opacity-70"
+        );
+
+        if (!feature.enabled) {
+          return (
+            <div key={tool.href} className={className} aria-disabled="true">
+              {content}
+            </div>
+          );
+        }
 
         return (
           <Link
             key={tool.href}
             href={tool.href}
-            className="group rounded-brutal border-2 border-ink bg-surface p-4 shadow-brutal transition-all duration-100 hover:-translate-y-0.5 hover:bg-green-50"
+            className={className}
           >
-            <div className="mb-3 flex items-center justify-between">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-brutal border-2 border-ink bg-paper">
-                <Icon className="h-4 w-4 text-primary" />
-              </span>
-              <Badge>{tool.badge}</Badge>
-            </div>
-            <h3 className="text-lg font-bold">{tool.title}</h3>
-            <p className="mt-2 text-sm text-muted">{tool.description}</p>
-            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-primary">Open tool</p>
+            {content}
           </Link>
         );
       })}

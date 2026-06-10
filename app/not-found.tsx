@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const popularTools = [
   ["Merge", "/tools/merge"],
-  ["Compress", "/tools/compress"],
+  ["Split", "/tools/split"],
   ["Sign", "/tools/sign"]
 ] as const;
 
