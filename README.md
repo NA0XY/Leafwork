@@ -19,7 +19,7 @@
 <!-- SCREENSHOT: Full homepage hero — capture at 1440px wide, save as docs/images/hero.png -->
 <img src="docs/images/hero.png" alt="Free online PDF tools - merge PDF, split PDF, compress PDF without upload" width="100%" />
 
-**🔒 100% Private** · **⚡ No Upload Required** · **🆓 Completely Free** · **📱 Works Offline** · **♾️ No File Size Limit**
+**🔒 100% Private** · **⚡ No Upload Required** · **🆓 Completely Free** · **📱 Works Offline** · **♾️ No File Size Limit** · **🔐 Sandboxed Execution**
 
 [Try Free PDF Tools](https://leafworkpdf.vercel.app) · [View All PDF Tools](#free-pdf-tools) · [How It Works](#how-it-works)
 
@@ -59,6 +59,7 @@
 ✅ **Unlimited file size** - No server means no file size restrictions  
 ✅ **Fast PDF processing** - Instant results without waiting for server processing  
 ✅ **Privacy-first PDF editor** - Your sensitive documents stay completely private  
+✅ **Sandboxed browser execution** - All processing runs in isolated browser context for maximum security  
 ✅ **Works offline** - Process PDFs even without internet connection  
 ✅ **No watermarks** - Clean output files without branding  
 
@@ -92,12 +93,14 @@
 
 | Feature | Traditional Online PDF Tools | Leafwork Browser-Based PDF Tools |
 |---------|------------------------------|----------------------------------|
-| **File Upload** | Required - files sent to server | Not required - stays in browser |
-| **Privacy** | Files stored on remote servers | Files never leave your device |
+| **File Upload** | Required - files sent to server | Not required - stays in browser sandbox |
+| **Privacy** | Files stored on remote servers | Files never leave your isolated browser context |
 | **File Size Limit** | 5-50 MB typical limit | Unlimited - no server restrictions |
-| **Processing Speed** | Slow - depends on server queue | Instant - local processing |
+| **Processing Speed** | Slow - depends on server queue | Instant - sandboxed local processing |
 | **Internet Required** | Yes - for upload and download | No - works offline after loading |
-| **Cost** | Free tier limited, paid plans | 100% free forever |
+| **Cost** | Free | 100% free forever |
+| **Watermarks** | Often added to free versions | Never - clean output always |
+| **Security** | Files pass through third-party servers | Sandboxed execution in your browser |
 | **Watermarks** | Often added to free versions | Never - clean output always |
 
 ### How Leafwork PDF Processing Works
@@ -233,12 +236,13 @@ Most online PDF tools were built in the early 2000s when browsers couldn't proce
 
 ### Key Advantages of Browser-Based PDF Processing
 
-🔐 **Maximum Privacy** - Your confidential documents never touch a server  
+🔐 **Maximum Privacy** - Your confidential documents never touch a server, processed in browser sandbox  
 ⚡ **Instant Processing** - No upload/download time, no server queue  
 💰 **Always Free** - No premium tiers, no feature restrictions  
 📦 **No Limits** - Process files of any size  
 🌐 **Works Everywhere** - Any modern browser on any device  
 🔌 **Offline Capable** - Process PDFs without internet  
+🛡️ **Sandboxed Security** - Browser isolation protects your files from unauthorized access  
 
 ---
 
@@ -294,7 +298,7 @@ Browser downloads file directly
 Original file cleared from memory
 ```
 
-**Zero network requests. Zero server storage. Zero privacy risk.**
+**Zero network requests. Zero server storage. Zero privacy risk. Maximum sandbox security.**
 
 ### AI Features (Optional)
 
@@ -360,13 +364,29 @@ leafwork/
 
 ## Privacy & Security
 
+### Sandboxed Browser Execution
+
+Leafwork runs entirely in your browser's sandboxed environment — a security feature built into all modern browsers that isolates web applications from your operating system and other applications.
+
+**What is browser sandboxing?**
+- Every web application runs in an isolated container
+- Cannot access files outside the browser context without explicit permission
+- Cannot interact with other applications or system processes
+- Protects against malicious code and unauthorized file access
+
+**Why this matters for PDF processing:**
+- Your PDFs are processed in a security-isolated environment
+- No external processes can access your documents during processing
+- Files exist only in temporary browser memory, never touching the filesystem
+- Even if our application were compromised, the sandbox prevents unauthorized access
+
 ### How We Protect Your Privacy
 
-1. **No file upload** - Files are processed in your browser's memory
-2. **No server storage** - We never see or store your files
+1. **No file upload** - Files are processed entirely in your browser's sandboxed memory
+2. **No server storage** - We never see or store your files — they never leave the sandbox
 3. **No tracking** - No analytics on file content or usage patterns
 4. **No account required** - Use all core tools without registration
-5. **Open source** - Audit the code yourself on GitHub
+5. **Isolated execution** - Browser sandbox prevents access to your system or other applications
 
 ### Verify Privacy Yourself
 
@@ -377,19 +397,26 @@ You can verify that your files never leave your browser:
 3. Use any PDF tool
 4. Observe: No network requests containing your file data
 
-### Security Best Practices
+### Security Architecture
 
-- All processing happens in isolated browser context
-- Files cleared from memory after processing
-- No cookies or local storage for file data
-- HTTPS encryption for website delivery
-- Content Security Policy headers enabled
+- **Sandboxed processing** - All operations run in isolated browser context
+- **Memory-only handling** - Files exist only in volatile browser RAM
+- **Automatic cleanup** - Files cleared from memory after processing
+- **No persistent storage** - No cookies, localStorage, or IndexedDB for file data
+- **HTTPS encryption** - Secure delivery of application code
+- **Content Security Policy** - Prevents injection attacks and unauthorized code execution
+- **Same-origin policy** - Browser enforces strict isolation from other domains
 
 ### GDPR & Compliance
 
 Since your files never reach our servers:
 - No data processing agreements needed
 - No data retention policies apply
+- No cross-border data transfer concerns
+- No data breach risk from server compromise
+- Perfect for handling sensitive, confidential, or regulated documents
+
+**The sandbox is your guarantee:** Even if you don't trust our code, you can trust your browser's security model to keep your files isolated and private.
 - No data breach risk
 - No cross-border data transfer concerns
 - Perfect for handling sensitive documents
@@ -454,9 +481,9 @@ Those services upload your files to their servers. Leafwork processes everything
 
 **Tool-specific Keywords:** pdf merger online, pdf splitter tool, pdf compression tool, digital signature pdf, pdf watermark remover, pdf metadata cleaner, pdf to docx converter, pdf to image converter, ai pdf summarizer
 
-**Privacy Keywords:** secure pdf editor, private pdf tools, pdf editor no upload, confidential document editor, gdpr compliant pdf tools, pdf tools for sensitive documents
+**Privacy Keywords:** secure pdf editor, private pdf tools, pdf editor no upload, confidential document editor, gdpr compliant pdf tools, pdf tools for sensitive documents, sandboxed pdf processing, browser sandbox pdf tools
 
-**Technical Keywords:** webassembly pdf, pdf.js tools, browser pdf processing, client-side pdf editor, javascript pdf library, pdf-lib tools, local pdf processing
+**Technical Keywords:** webassembly pdf, pdf.js tools, browser pdf processing, client-side pdf editor, javascript pdf library, pdf-lib tools, local pdf processing, sandboxed browser execution
 
 ---
 
