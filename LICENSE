@@ -1,100 +1,21 @@
-PROPRIETARY LICENSE
+MIT License
 
-Copyright (c) 2024 Leafwork. All rights reserved.
+Copyright (c) 2024 Leafwork
 
-TERMS AND CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-1. DEFINITIONS
-   "Software" refers to the Leafwork application, including all source code,
-   documentation, and associated files in this repository.
-   
-   "Use" means accessing the Software through the official web application at
-   leafworkpdf.vercel.app or any official deployment.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-2. GRANT OF RIGHTS
-   Subject to the terms of this license, you are granted the following rights:
-   
-   a) You may USE the Software through the official web application for personal
-      and commercial document processing purposes.
-   
-   b) You may VIEW the source code for security auditing, transparency, and
-      educational purposes only.
-
-3. RESTRICTIONS
-   You may NOT, without obtaining a separate commercial license:
-   
-   a) Copy, modify, merge, publish, distribute, sublicense, or sell copies of
-      the Software or any portion thereof.
-   
-   b) Create derivative works based on the Software.
-   
-   c) Deploy, host, or run your own instance of the Software.
-   
-   d) Use the Software's source code in other projects or applications.
-   
-   e) Remove, alter, or obscure any copyright, trademark, or other proprietary
-      notices from the Software.
-   
-   f) Reverse engineer, decompile, or disassemble the Software, except to the
-      extent that such activity is expressly permitted by applicable law.
-
-4. COMMERCIAL LICENSING
-   For commercial licensing, self-hosting, white-label solutions, enterprise
-   deployments, or any use not explicitly permitted under Section 2, contact:
-   
-   Email: licensing@leafworkpdf.com
-   
-   Commercial licenses are available for:
-   - Self-hosted deployments
-   - White-label solutions
-   - Enterprise integrations
-   - Custom feature development
-   - Source code access and modification rights
-
-5. THIRD-PARTY COMPONENTS
-   The Software incorporates open-source components (including but not limited
-   to PDF.js, pdf-lib, Next.js, React) which are licensed under their respective
-   open-source licenses. This proprietary license applies only to the Leafwork
-   application code and does not supersede or modify the licenses of these
-   third-party components.
-
-6. INTELLECTUAL PROPERTY
-   All intellectual property rights in the Software, including but not limited
-   to copyrights, trademarks, trade secrets, and patents, are and shall remain
-   the exclusive property of Leafwork.
-
-7. NO WARRANTY
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-   SOFTWARE.
-
-8. LIMITATION OF LIABILITY
-   IN NO EVENT SHALL LEAFWORK BE LIABLE FOR ANY SPECIAL, INCIDENTAL, INDIRECT,
-   OR CONSEQUENTIAL DAMAGES WHATSOEVER (INCLUDING, WITHOUT LIMITATION, DAMAGES
-   FOR LOSS OF BUSINESS PROFITS, BUSINESS INTERRUPTION, LOSS OF BUSINESS
-   INFORMATION, OR ANY OTHER PECUNIARY LOSS) ARISING OUT OF THE USE OF OR
-   INABILITY TO USE THE SOFTWARE.
-
-9. TERMINATION
-   This license is effective until terminated. Your rights under this license
-   will terminate automatically without notice if you fail to comply with any
-   of its terms. Upon termination, you must cease all use of the Software and
-   destroy all copies in your possession.
-
-10. GOVERNING LAW
-    This license shall be governed by and construed in accordance with the laws
-    of the jurisdiction in which Leafwork is registered, without regard to its
-    conflict of law provisions.
-
-11. ENTIRE AGREEMENT
-    This license constitutes the entire agreement between you and Leafwork
-    concerning the Software and supersedes all prior or contemporaneous
-    understandings regarding such subject matter.
-
-For questions about this license, contact: harshsinghal1972@gmail..com
-
-Last updated: 2024
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

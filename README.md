@@ -11,7 +11,7 @@
 [![Free PDF Tools Online](https://img.shields.io/badge/Try%20Free-leafworkpdf.vercel.app-22c55e?style=flat-square&logo=vercel&logoColor=white)](https://leafworkpdf.vercel.app)
 [![Next.js PDF Editor](https://img.shields.io/badge/Next.js-14-black?style=flat-square&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Proprietary License](https://img.shields.io/badge/License-Proprietary-22c55e?style=flat-square)](LICENSE)
+[![Open Source PDF Tools](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](LICENSE)
 [![PDF.js](https://img.shields.io/badge/PDF.js-WebAssembly-red?style=flat-square)](https://mozilla.github.io/pdf.js/)
 
 <br />
@@ -320,9 +320,43 @@ Result displayed or exported as DOCX
 
 ---
 
-## Proprietary PDF Editor
+## Open Source PDF Editor
 
-Leafwork is proprietary software. The source code is available for viewing and auditing purposes only.
+Leafwork is open source and available on GitHub. Developers can:
+
+- Fork and customize for specific use cases
+- Self-host on your own infrastructure
+- Integrate PDF tools into existing applications
+- Contribute new features and improvements
+- Audit the code for security and privacy
+
+### Contributing
+
+We welcome contributions from the developer community:
+
+```bash
+# Fork the repository
+git clone https://github.com/NA0XY/Leafwork.git
+
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Create feature branch
+git checkout -b feature/your-pdf-tool
+
+# Submit pull request
+```
+
+**Contribution ideas:**
+- New PDF tools (extract tables, OCR, form filling)
+- Performance optimizations
+- Mobile UI improvements
+- Accessibility enhancements
+- Internationalization (i18n)
+- Documentation improvements
 
 ### Project Structure
 
@@ -387,6 +421,7 @@ Leafwork runs entirely in your browser's sandboxed environment — a security fe
 3. **No tracking** - No analytics on file content or usage patterns
 4. **No account required** - Use all core tools without registration
 5. **Isolated execution** - Browser sandbox prevents access to your system or other applications
+6. **Open source** - Audit the code yourself on GitHub
 
 ### Verify Privacy Yourself
 
@@ -447,7 +482,7 @@ All modern browsers: Chrome, Firefox, Safari, Edge. Requires JavaScript and WebA
 
 ### Can I use this for commercial purposes?
 
-The web application at leafworkpdf.vercel.app is free to use for personal and commercial document processing. The source code is proprietary and may not be copied, modified, or redistributed without permission.
+Yes. Leafwork is MIT licensed, which allows personal and commercial use, modification, and distribution.
 
 ### How do AI features work?
 
@@ -459,7 +494,7 @@ Yes. Your files never leave your browser, so there's no data transmission or sto
 
 ### Can I self-host Leafwork?
 
-Self-hosting requires a commercial license. Contact us for licensing options.
+Yes. Clone the GitHub repository and deploy to your own infrastructure. The project is MIT licensed.
 
 ### How is this different from Adobe Acrobat?
 
@@ -481,9 +516,9 @@ Those services upload your files to their servers. Leafwork processes everything
 
 **Tool-specific Keywords:** pdf merger online, pdf splitter tool, pdf compression tool, digital signature pdf, pdf watermark remover, pdf metadata cleaner, pdf to docx converter, pdf to image converter, ai pdf summarizer
 
-**Privacy Keywords:** secure pdf editor, private pdf tools, pdf editor no upload, confidential document editor, gdpr compliant pdf tools, pdf tools for sensitive documents, sandboxed pdf processing, browser sandbox pdf tools
+**Privacy Keywords:** secure pdf editor, private pdf tools, pdf editor no upload, confidential document editor, gdpr compliant pdf tools, pdf tools for sensitive documents, sandboxed pdf processing, browser sandbox pdf tools, open source pdf tools
 
-**Technical Keywords:** webassembly pdf, pdf.js tools, browser pdf processing, client-side pdf editor, javascript pdf library, pdf-lib tools, local pdf processing, sandboxed browser execution
+**Technical Keywords:** webassembly pdf, pdf.js tools, browser pdf processing, client-side pdf editor, javascript pdf library, pdf-lib tools, local pdf processing, sandboxed browser execution, open source pdf editor
 
 ---
 
@@ -527,12 +562,12 @@ This project uses open-source libraries (PDF.js, pdf-lib, Next.js, etc.) which r
 
 Merge PDF · Split PDF · Compress PDF · Sign PDF · Edit PDF · Convert PDF
 
-**100% Free · No Upload · Privacy-First · Proprietary Software**
+**100% Free · No Upload · Privacy-First · Open Source**
 
 ---
 
 Built with [Next.js](https://nextjs.org) · Powered by [PDF.js](https://mozilla.github.io/pdf.js/) · Hosted on [Vercel](https://vercel.com)
 
-📖 [Documentation](#) · 🐛 [Report Bug](#) · 💡 [Request Feature](#) · 📧 [Commercial Licensing](mailto:licensing@leafworkpdf.com)
+⭐ Star us on [GitHub](https://github.com/NA0XY/Leafwork) · 📖 [Documentation](#) · 🐛 [Report Bug](https://github.com/NA0XY/Leafwork/issues) · 💡 [Request Feature](https://github.com/NA0XY/Leafwork/issues)
 
 </div>
