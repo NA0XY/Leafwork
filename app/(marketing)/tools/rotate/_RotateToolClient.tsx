@@ -4,13 +4,13 @@ import { RotateCcw, RotateCw, Repeat } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { LazyPdfThumbnail } from "@/components/tools/LazyPdfThumbnail";
 import { ReplaceFileDropTarget } from "@/components/tools/ReplaceFileDropTarget";
-import { ZoomablePreview } from "@/components/tools/ZoomablePreview";
 import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
 import { withPdfLib } from "@/lib/pdf/engine";
-import { getPageCount, renderThumbnail } from "@/lib/pdf/renderer";
+import { getPageCount } from "@/lib/pdf/renderer";
 import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
 import { useSandboxStore } from "@/store/sandbox-store";
@@ -39,7 +39,6 @@ export const RotateToolClient = () => {
   const [file, setFile] = useState<File | null>(null);
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
   const [pageCount, setPageCount] = useState(0);
-  const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] = useState<"all" | "selected">("all");
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
   const [pageRotationPlan, setPageRotationPlan] = useState<Map<number, Rotation>>(new Map());
@@ -64,15 +63,6 @@ export const RotateToolClient = () => {
       setPageCount(count);
       setSelectedPages(new Set());
       setPageRotationPlan(new Map());
-
-      const nextThumbs: string[] = [];
-      for (let page = 1; page <= count; page += 1) {
-        nextThumbs.push(await renderThumbnail(bytes, page));
-      }
-
-      if (!cancelled) {
-        setThumbnails(nextThumbs);
-      }
     };
 
     void load();
@@ -105,7 +95,7 @@ export const RotateToolClient = () => {
   const loadFile = async (next: File) => {
     setFile(next);
     setBytes(new Uint8Array(await next.arrayBuffer()));
-    setThumbnails([]);
+    setPageCount(0);
     setSelectedPages(new Set());
     setPageRotationPlan(new Map());
     setSavingToSandbox(false);
@@ -155,7 +145,7 @@ export const RotateToolClient = () => {
         onRemove={() => {
           setFile(null);
           setBytes(null);
-          setThumbnails([]);
+          setPageCount(0);
           setSelectedPages(new Set());
           setPageRotationPlan(new Map());
           setSavingToSandbox(false);
@@ -252,16 +242,19 @@ export const RotateToolClient = () => {
         ) : null}
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {thumbnails.map((thumbnail, index) => {
+          {Array.from({ length: pageCount }, (_, index) => {
             const selected = selectedPages.has(index);
             const plannedRotation = pageRotationPlan.get(index);
             const previewRotation =
               selectionMode === "all" ? rotation : pageRotationPlan.size > 0 ? plannedRotation ?? 0 : selected ? rotation : 0;
             return (
-              <button
+              <LazyPdfThumbnail
                 key={`rotate-thumb-${index}`}
-                type="button"
-                className={`relative rounded-brutal border-2 p-2 text-left shadow-brutal-sm ${selected ? "border-primary bg-green-100" : "border-ink bg-paper"}`}
+                bytes={bytes}
+                pageNumber={index + 1}
+                selected={selected}
+                className="shadow-brutal-sm"
+                rotationDeg={previewRotation}
                 onClick={() => {
                   if (selectionMode !== "selected") {
                     return;
@@ -277,13 +270,6 @@ export const RotateToolClient = () => {
                   });
                 }}
               >
-                <ZoomablePreview
-                  src={thumbnail}
-                  alt={`Page ${index + 1}`}
-                  className="mb-2"
-                  imageClassName="h-auto w-full rounded-brutal border border-ink"
-                  rotationDeg={previewRotation}
-                />
                 <p className="text-xs font-semibold">Page {index + 1}</p>
                 {previewRotation ? (
                   <span className="absolute bottom-2 right-2 rounded-full border border-ink bg-yellow-200 px-2 py-0.5 text-[10px] font-bold">
@@ -294,7 +280,7 @@ export const RotateToolClient = () => {
                     Selected
                   </span>
                 ) : null}
-              </button>
+              </LazyPdfThumbnail>
             );
           })}
         </div>

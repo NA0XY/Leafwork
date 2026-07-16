@@ -6,7 +6,6 @@ import { validateRenderedPdfBytes } from "@/lib/pdf/compression/validation";
 import { addRasterizedRedactionPage, stripPdfMetadata, type NormalizedRedactionRect } from "@/lib/pdf/security";
 import type { SandboxCompileInput, SandboxCompileOutput, SandboxOperation, SandboxPageRef } from "@/lib/pdf/sandbox/types";
 import { PDFEngineError, PDFEngineErrorCode, type ProcessingResult, type WatermarkPosition } from "@/lib/pdf/types";
-import { validateBrowserLocalPageBudget } from "@/lib/validations/pdf-safety";
 
 type PdfLibModule = typeof import("pdf-lib");
 type PdfDocument = import("pdf-lib").PDFDocument;
@@ -130,15 +129,6 @@ export const compileSandboxToPdf = async (
     return toResult<SandboxCompileOutput>(
       null,
       new PDFEngineError(PDFEngineErrorCode.INVALID_FILE, "Add at least one page before exporting the sandbox."),
-      startedAt
-    );
-  }
-
-  const pageBudgetError = validateBrowserLocalPageBudget(input.pages.length, "This sandbox export");
-  if (pageBudgetError) {
-    return toResult<SandboxCompileOutput>(
-      null,
-      new PDFEngineError(PDFEngineErrorCode.INVALID_FILE, pageBudgetError),
       startedAt
     );
   }

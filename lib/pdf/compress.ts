@@ -15,6 +15,7 @@ import {
 } from "@/lib/pdf/compression/types";
 import { validatePdfBytes, validateRenderedPdfBytes } from "@/lib/pdf/compression/validation";
 import { PDFEngineError, PDFEngineErrorCode, type CompressionTarget, type ProcessingResult } from "@/lib/pdf/types";
+import { stripPdfMetadata } from "@/lib/pdf/security";
 import { logger } from "@/lib/utils/logger";
 
 const toResult = <T>(data: T | null, error: PDFEngineError | null, startedAt: number): ProcessingResult<T> => ({
@@ -44,16 +45,7 @@ const optimizeWithPdfLib = async (bytes: Uint8Array, stripMetadata: boolean): Pr
     const doc = await pdfLib.PDFDocument.load(bytes, { ignoreEncryption: true });
 
     if (stripMetadata) {
-      doc.setTitle("");
-      doc.setAuthor("");
-      doc.setSubject("");
-      doc.setKeywords([]);
-      const metadataRef = doc.catalog.get(pdfLib.PDFName.of("Metadata"));
-      if (metadataRef) {
-        doc.catalog.delete(pdfLib.PDFName.of("Metadata"));
-      }
-      doc.setProducer("");
-      doc.setCreator("");
+      stripPdfMetadata(pdfLib, doc);
     }
 
     return doc.save({
@@ -110,7 +102,11 @@ export const compressPDF = async (
     });
     onProgress?.(25);
 
-    let bestBytes = stageOneStableBytes.byteLength < originalBytes.byteLength ? stageOneStableBytes : originalBytes;
+    let bestBytes = shouldStripMetadata
+      ? stageOneStableBytes
+      : stageOneStableBytes.byteLength < originalBytes.byteLength
+        ? stageOneStableBytes
+        : originalBytes;
     let bestQuality = 1;
     let bestScale = 1;
     let usedRasterization = false;
@@ -150,6 +146,7 @@ export const compressPDF = async (
       });
     }
 
+    const progressFloor = embeddedImageResult ? 70 : 25;
     const shouldTryRasterFallback =
       allowRasterization &&
       goalBytes < bestBytes.byteLength &&
@@ -214,7 +211,7 @@ export const compressPDF = async (
             high = quality;
           }
 
-          onProgress?.(25 + Math.round((currentStep / totalSteps) * 70));
+          onProgress?.(progressFloor + Math.round((currentStep / totalSteps) * (95 - progressFloor)));
         }
 
         if (bestUnderThisScale) {
@@ -250,9 +247,9 @@ export const compressPDF = async (
       }
     }
 
-    const hasValidStructure = await validatePdfBytes(originalBytes, bestBytes);
+    const hasValidStructure = await validatePdfBytes(stageOneStableBytes, bestBytes);
     const hasValidRender = hasValidStructure
-      ? await validateRenderedPdfBytes(originalBytes, bestBytes, { expectTextPreserved: vectorTextPreserved })
+      ? await validateRenderedPdfBytes(stageOneStableBytes, bestBytes, { expectTextPreserved: vectorTextPreserved })
       : false;
 
     if (!hasValidStructure || !hasValidRender) {
@@ -263,8 +260,8 @@ export const compressPDF = async (
         hasValidStructure,
         hasValidRender
       });
-      bestBytes = stageOneStableBytes;
-      if (lastValidBytesBeforeRaster.byteLength < stageOneStableBytes.byteLength) {
+      bestBytes = shouldStripMetadata ? stageOneStableBytes : originalBytes;
+      if (lastValidBytesBeforeRaster.byteLength < bestBytes.byteLength) {
         bestBytes = lastValidBytesBeforeRaster;
         bestQuality = lastValidQualityBeforeRaster;
         bestScale = lastValidScaleBeforeRaster;
@@ -278,7 +275,7 @@ export const compressPDF = async (
       vectorTextPreserved = true;
     }
 
-    if (bestBytes.byteLength > originalBytes.byteLength) {
+    if (!shouldStripMetadata && bestBytes.byteLength > originalBytes.byteLength) {
       logger.warn("pdf.compress.candidate.larger_than_original", {
         fileName: file.name,
         candidateBytes: bestBytes.byteLength,

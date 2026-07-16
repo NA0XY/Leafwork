@@ -5,16 +5,17 @@ import { Download, Image as ImageIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { LazyPdfThumbnail } from "@/components/tools/LazyPdfThumbnail";
 import { ReplaceFileDropTarget } from "@/components/tools/ReplaceFileDropTarget";
 import { ZoomablePreview } from "@/components/tools/ZoomablePreview";
 import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
 import { clonePdfBytes, loadPdfJs } from "@/lib/pdf/pdfjs";
-import { getPageCount, renderPage, renderThumbnail } from "@/lib/pdf/renderer";
+import { getPageCount, renderPage } from "@/lib/pdf/renderer";
 import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
-import { getSafeRasterScale, validateBrowserLocalPageBudget } from "@/lib/validations/pdf-safety";
+import { getSafeRasterScale } from "@/lib/validations/pdf-safety";
 
 type ConvertedImage = {
   page: number;
@@ -48,7 +49,6 @@ export const PdfToImagesToolClient = () => {
   const [file, setFile] = useState<File | null>(null);
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
   const [pageCount, setPageCount] = useState(0);
-  const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
   const [format, setFormat] = useState<"png" | "jpg">("png");
   const [resolution, setResolution] = useState<"screen" | "print" | "high">("screen");
@@ -69,25 +69,8 @@ export const PdfToImagesToolClient = () => {
         return;
       }
 
-      const pageBudgetError = validateBrowserLocalPageBudget(count, "This PDF");
-      if (pageBudgetError) {
-        toast.error("PDF too large for browser conversion", pageBudgetError);
-        setPageCount(0);
-        setSelectedPages(new Set());
-        return;
-      }
-
       setPageCount(count);
       setSelectedPages(new Set(Array.from({ length: count }, (_, index) => index)));
-
-      const nextThumbs: string[] = [];
-      for (let page = 1; page <= count; page += 1) {
-        nextThumbs.push(await renderThumbnail(bytes, page));
-      }
-
-      if (!cancelled) {
-        setThumbnails(nextThumbs);
-      }
     };
 
     void load();
@@ -101,7 +84,7 @@ export const PdfToImagesToolClient = () => {
   const loadFile = async (next: File) => {
     setFile(next);
     setBytes(new Uint8Array(await next.arrayBuffer()));
-    setThumbnails([]);
+    setPageCount(0);
     setResults([]);
   };
 
@@ -131,6 +114,7 @@ export const PdfToImagesToolClient = () => {
         onRemove={() => {
           setFile(null);
           setBytes(null);
+          setPageCount(0);
           setResults([]);
           setSelectedPages(new Set());
         }}
@@ -182,13 +166,14 @@ export const PdfToImagesToolClient = () => {
         </div>
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {thumbnails.map((thumbnail, index) => {
+          {Array.from({ length: pageCount }, (_, index) => {
             const selected = selectedPages.has(index);
             return (
-              <button
+              <LazyPdfThumbnail
                 key={`thumb-${index + 1}`}
-                type="button"
-                className={`relative rounded-brutal border-2 p-2 text-left ${selected ? "border-primary bg-green-100" : "border-ink bg-paper"}`}
+                bytes={bytes}
+                pageNumber={index + 1}
+                selected={selected}
                 onClick={() => {
                   setSelectedPages((current) => {
                     const next = new Set(current);
@@ -201,15 +186,9 @@ export const PdfToImagesToolClient = () => {
                   });
                 }}
               >
-                <ZoomablePreview
-                  src={thumbnail}
-                  alt={`Page ${index + 1}`}
-                  className="mb-2"
-                  imageClassName="h-auto w-full rounded-brutal border border-ink"
-                />
                 <p className="text-xs font-semibold">Page {index + 1}</p>
                 {selected ? <span className="absolute right-2 top-2 rounded-full bg-accent px-2 text-[10px] font-bold">On</span> : null}
-              </button>
+              </LazyPdfThumbnail>
             );
           })}
         </div>

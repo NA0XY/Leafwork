@@ -157,7 +157,7 @@ const SortableRow = ({
           <p className="mt-1 text-xs text-muted">{pageCount ? formatPageCount(pageCount) : "Counting pages..."}</p>
           {markedPages ? (
             <p className="mt-2 inline-flex rounded-brutal border border-ink bg-green-100 px-2 py-1 text-xs font-semibold">
-              Marked: {markedPages}
+              Selected: {markedPages}
             </p>
           ) : null}
         </div>

@@ -6,12 +6,7 @@ import { create } from "zustand";
 import { imagesToIndividualPdfs } from "@/lib/pdf/images-to-pdf";
 import { getPageCount } from "@/lib/pdf/renderer";
 import type { SandboxFile, SandboxOperation, SandboxOperationInput, SandboxPageRef } from "@/lib/pdf/sandbox/types";
-import {
-  validateBrowserLocalFile,
-  validateBrowserLocalPageBudget,
-  validateBrowserLocalTotalBytes,
-  validateImagePixelBudget
-} from "@/lib/validations/pdf-safety";
+import { validateImagePixelBudget } from "@/lib/validations/pdf-safety";
 
 type SandboxSnapshot = {
   pages: SandboxPageRef[];
@@ -36,10 +31,14 @@ type SandboxStore = {
   togglePageSelection: (pageId: string) => void;
   togglePageMark: (pageId: string) => void;
   clearFilePageMarks: (fileId: string) => void;
+  selectPageIds: (pageIds: string[]) => void;
+  clearPageIds: (pageIds: string[]) => void;
   selectAll: () => void;
   deselectAll: () => void;
+  deletePageIds: (pageIds: string[]) => void;
   deleteSelectedPages: () => void;
   extractSelectedPages: () => void;
+  rotatePageIds: (pageIds: string[], degrees: 90 | 180 | 270) => void;
   rotateSelectedPages: (degrees: 90 | 180 | 270) => void;
   movePage: (pageId: string, toIndex: number) => void;
   addOperation: (operation: SandboxOperationInput) => void;
@@ -133,7 +132,7 @@ const withOperation = (
   pages,
   past: pushSnapshot(state),
   future: [],
-  selectedPageIds: new Set<string>(),
+  selectedPageIds: new Set([...state.selectedPageIds].filter((pageId) => pages.some((page) => page.id === pageId))),
   markedPageIds: new Set([...state.markedPageIds].filter((pageId) => pages.some((page) => page.id === pageId)))
 });
 
@@ -155,26 +154,11 @@ export const useSandboxStore = create<SandboxStore>((set, get) => ({
 
     try {
       const loadedFiles: SandboxFile[] = [];
-      const existingBytes = get().files.reduce((total, file) => total + file.size, 0);
-      const incomingBytes = files.reduce((total, file) => total + file.size, 0);
-      const totalBudgetError = validateBrowserLocalTotalBytes(existingBytes, incomingBytes);
-      if (totalBudgetError) {
-        throw new Error(totalBudgetError);
-      }
 
       for (const file of files) {
-        const fileBudgetError = validateBrowserLocalFile(file, { kind: isImage(file) ? "image" : "pdf" });
-        if (fileBudgetError) {
-          throw new Error(fileBudgetError);
-        }
-
         if (isPdf(file)) {
           const bytes = new Uint8Array(await file.arrayBuffer());
           const pageCount = await getPageCount(bytes);
-          const pageBudgetError = validateBrowserLocalPageBudget(get().pages.length + loadedFiles.reduce((total, loaded) => total + loaded.pageCount, 0) + pageCount, "This sandbox");
-          if (pageBudgetError) {
-            throw new Error(pageBudgetError);
-          }
           loadedFiles.push({
             id: nanoid(),
             name: file.name,
@@ -248,25 +232,31 @@ export const useSandboxStore = create<SandboxStore>((set, get) => ({
 
   togglePageSelection: (pageId) => {
     set((state) => {
-      const next = new Set(state.selectedPageIds);
-      if (next.has(pageId)) {
-        next.delete(pageId);
+      const selected = new Set(state.selectedPageIds);
+      const marked = new Set(state.markedPageIds);
+      if (selected.has(pageId) || marked.has(pageId)) {
+        selected.delete(pageId);
+        marked.delete(pageId);
       } else {
-        next.add(pageId);
+        selected.add(pageId);
+        marked.add(pageId);
       }
-      return { selectedPageIds: next };
+      return { selectedPageIds: selected, markedPageIds: marked };
     });
   },
 
   togglePageMark: (pageId) => {
     set((state) => {
-      const next = new Set(state.markedPageIds);
-      if (next.has(pageId)) {
-        next.delete(pageId);
+      const selected = new Set(state.selectedPageIds);
+      const marked = new Set(state.markedPageIds);
+      if (marked.has(pageId) || selected.has(pageId)) {
+        selected.delete(pageId);
+        marked.delete(pageId);
       } else {
-        next.add(pageId);
+        selected.add(pageId);
+        marked.add(pageId);
       }
-      return { markedPageIds: next };
+      return { selectedPageIds: selected, markedPageIds: marked };
     });
   },
 
@@ -274,20 +264,46 @@ export const useSandboxStore = create<SandboxStore>((set, get) => ({
     set((state) => {
       const filePageIds = new Set(state.pages.filter((page) => page.fileId === fileId).map((page) => page.id));
       return {
+        selectedPageIds: new Set([...state.selectedPageIds].filter((pageId) => !filePageIds.has(pageId))),
         markedPageIds: new Set([...state.markedPageIds].filter((pageId) => !filePageIds.has(pageId)))
       };
     });
   },
 
-  selectAll: () => set((state) => ({ selectedPageIds: new Set(state.pages.map((page) => page.id)) })),
-  deselectAll: () => set({ selectedPageIds: new Set<string>() }),
+  selectPageIds: (pageIds) =>
+    set((state) => {
+      const selected = new Set(state.selectedPageIds);
+      const marked = new Set(state.markedPageIds);
+      pageIds.forEach((pageId) => {
+        selected.add(pageId);
+        marked.add(pageId);
+      });
+      return { selectedPageIds: selected, markedPageIds: marked };
+    }),
 
-  deleteSelectedPages: () => {
+  clearPageIds: (pageIds) =>
+    set((state) => {
+      const ids = new Set(pageIds);
+      return {
+        selectedPageIds: new Set([...state.selectedPageIds].filter((pageId) => !ids.has(pageId))),
+        markedPageIds: new Set([...state.markedPageIds].filter((pageId) => !ids.has(pageId)))
+      };
+    }),
+
+  selectAll: () =>
+    set((state) => {
+      const allPageIds = new Set(state.pages.map((page) => page.id));
+      return { selectedPageIds: allPageIds, markedPageIds: new Set(allPageIds) };
+    }),
+  deselectAll: () => set({ selectedPageIds: new Set<string>(), markedPageIds: new Set<string>() }),
+
+  deletePageIds: (pageIds) => {
     const state = get();
-    const pageIds = [...state.selectedPageIds];
     if (!pageIds.length) {
       return;
     }
+
+    const pageIdSet = new Set(pageIds);
 
     const operation: SandboxOperation = {
       id: nanoid(),
@@ -296,8 +312,10 @@ export const useSandboxStore = create<SandboxStore>((set, get) => ({
       timestamp: Date.now()
     };
 
-    set(withOperation(state, operation, state.pages.filter((page) => !state.selectedPageIds.has(page.id))));
+    set(withOperation(state, operation, state.pages.filter((page) => !pageIdSet.has(page.id))));
   },
+
+  deleteSelectedPages: () => get().deletePageIds([...get().selectedPageIds]),
 
   extractSelectedPages: () => {
     const state = get();
@@ -316,9 +334,8 @@ export const useSandboxStore = create<SandboxStore>((set, get) => ({
     set(withOperation(state, operation, state.pages.filter((page) => state.selectedPageIds.has(page.id))));
   },
 
-  rotateSelectedPages: (degrees) => {
+  rotatePageIds: (pageIds, degrees) => {
     const state = get();
-    const pageIds = [...state.selectedPageIds];
     if (!pageIds.length) {
       return;
     }
@@ -331,7 +348,7 @@ export const useSandboxStore = create<SandboxStore>((set, get) => ({
       timestamp: Date.now()
     };
 
-    const selected = state.selectedPageIds;
+    const selected = new Set(pageIds);
     const pages = state.pages.map((page) => {
       if (!selected.has(page.id)) {
         return page;
@@ -342,6 +359,8 @@ export const useSandboxStore = create<SandboxStore>((set, get) => ({
 
     set(withOperation(state, operation, pages));
   },
+
+  rotateSelectedPages: (degrees) => get().rotatePageIds([...get().selectedPageIds], degrees),
 
   movePage: (pageId, toIndex) => {
     const state = get();
@@ -399,7 +418,8 @@ export const useSandboxStore = create<SandboxStore>((set, get) => ({
         operations: previous.operations,
         past: state.past.slice(0, -1),
         future: [{ pages: state.pages, operations: state.operations }, ...state.future].slice(0, MAX_HISTORY),
-        selectedPageIds: new Set<string>()
+        selectedPageIds: new Set<string>(),
+        markedPageIds: new Set<string>()
       };
     });
   },
@@ -415,7 +435,8 @@ export const useSandboxStore = create<SandboxStore>((set, get) => ({
         operations: next.operations,
         past: [...state.past, { pages: state.pages, operations: state.operations }].slice(-MAX_HISTORY),
         future: state.future.slice(1),
-        selectedPageIds: new Set<string>()
+        selectedPageIds: new Set<string>(),
+        markedPageIds: new Set<string>()
       };
     });
   },

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils/cn";
 import { formatMarkedPageNumbers } from "@/lib/pdf/sandbox/marked-pages";
 import { checkMagicBytes } from "@/lib/validations/file";
-import { validateBrowserLocalFile, validateBrowserLocalTotalBytes, validateImagePixelBudget } from "@/lib/validations/pdf-safety";
+import { validateImagePixelBudget } from "@/lib/validations/pdf-safety";
 import { formatBytes, truncateFilename } from "@/lib/utils/format";
 import { getSandboxFileMetadata, getSandboxImageFiles, getSandboxNativeFiles, SANDBOX_FILE_DRAG_MIME } from "@/store/sandbox-store";
 
@@ -81,13 +81,6 @@ export const DropZone = ({
           continue;
         }
 
-        const fileBudgetError = validateBrowserLocalFile(file, { kind: fileKind });
-        if (fileBudgetError) {
-          setError(fileBudgetError);
-          onError?.(fileBudgetError);
-          continue;
-        }
-
         const pixelBudgetError = fileKind === "image" ? await validateImagePixelBudget(file) : null;
         if (pixelBudgetError) {
           setError(pixelBudgetError);
@@ -99,16 +92,6 @@ export const DropZone = ({
       }
 
       if (!validated.length) {
-        return;
-      }
-
-      const totalBudgetError = validateBrowserLocalTotalBytes(
-        files.reduce((total, file) => total + file.size, 0),
-        validated.reduce((total, file) => total + file.size, 0)
-      );
-      if (totalBudgetError) {
-        setError(totalBudgetError);
-        onError?.(totalBudgetError);
         return;
       }
 
@@ -228,7 +211,7 @@ export const DropZone = ({
                       </span>
                       {markedPages ? (
                         <span className="mt-1 inline-flex rounded-brutal border border-ink bg-green-100 px-1.5 py-0.5 text-[11px] font-semibold">
-                          Marked: {markedPages}
+                          Selected: {markedPages}
                         </span>
                       ) : null}
                     </span>

@@ -32,7 +32,7 @@ import { renderThumbnail } from "@/lib/pdf/renderer";
 import { compileSandboxToPdf } from "@/lib/pdf/sandbox/compiler";
 import type { SandboxFile, SandboxOperation, SandboxPageRef } from "@/lib/pdf/sandbox/types";
 import type { WatermarkPosition } from "@/lib/pdf/types";
-import { getSafeRasterScale, validateBrowserLocalPageBudget } from "@/lib/validations/pdf-safety";
+import { getSafeRasterScale } from "@/lib/validations/pdf-safety";
 import { trackToolActivity } from "@/lib/utils/activity";
 import { cn } from "@/lib/utils/cn";
 import { downloadBlob } from "@/lib/utils/file";
@@ -106,7 +106,7 @@ const PageThumbnail = ({
           observer.disconnect();
         }
       },
-      { rootMargin: "280px" }
+      { rootMargin: "1000px 0px" }
     );
 
     observer.observe(node);
@@ -335,11 +335,6 @@ export const SandboxToolClient = () => {
       const zip = new JSZip();
 
       try {
-        const pageBudgetError = validateBrowserLocalPageBudget(pdf.numPages, "This image export");
-        if (pageBudgetError) {
-          throw new Error(pageBudgetError);
-        }
-
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
           const page = await pdf.getPage(pageNumber);
           const baseViewport = page.getViewport({ scale: 1 });

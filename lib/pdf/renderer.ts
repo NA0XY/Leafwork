@@ -13,6 +13,7 @@ const MAX_CACHE_ITEMS = 200;
 
 const thumbnailCache = new Map<string, Map<number, CachedThumbnail>>();
 const cacheOrder: Array<{ fileHash: string; pageNumber: number }> = [];
+const fileHashCache = new WeakMap<Uint8Array, string>();
 
 const ensureNotAborted = (signal?: AbortSignal): void => {
   if (signal?.aborted) {
@@ -83,6 +84,17 @@ const storeCachedThumbnail = (fileHash: string, pageNumber: number, dataUrl: str
   }
 };
 
+const getCachedFileHash = async (bytes: Uint8Array): Promise<string> => {
+  const cached = fileHashCache.get(bytes);
+  if (cached) {
+    return cached;
+  }
+
+  const hash = await createFileHash(bytes);
+  fileHashCache.set(bytes, hash);
+  return hash;
+};
+
 export const renderPage = async (
   bytes: Uint8Array,
   pageNumber: number,
@@ -139,7 +151,7 @@ export const renderPage = async (
 export const renderThumbnail = async (bytes: Uint8Array, pageNumber: number): Promise<string> => {
   clearStaleCache();
 
-  const key = await createFileHash(bytes);
+  const key = await getCachedFileHash(bytes);
   const cachedThumbnail = thumbnailCache.get(key)?.get(pageNumber);
   if (cachedThumbnail) {
     return cachedThumbnail.dataUrl;

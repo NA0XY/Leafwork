@@ -4,13 +4,13 @@ import JSZip from "jszip";
 import { useEffect, useMemo, useState } from "react";
 
 import { FileInfoCard } from "@/components/tools/FileInfoCard";
+import { LazyPdfThumbnail } from "@/components/tools/LazyPdfThumbnail";
 import { ReplaceFileDropTarget } from "@/components/tools/ReplaceFileDropTarget";
-import { ZoomablePreview } from "@/components/tools/ZoomablePreview";
 import { Button } from "@/components/ui/Button";
 import { DropZone } from "@/components/ui/DropZone";
 import { useToast } from "@/hooks/useToast";
 import { extractPages, splitByPages, splitEveryN, type PageRange, type SplitOutput } from "@/lib/pdf/split";
-import { getPageCount, renderThumbnail } from "@/lib/pdf/renderer";
+import { getPageCount } from "@/lib/pdf/renderer";
 import { trackToolActivity } from "@/lib/utils/activity";
 import { downloadBlob } from "@/lib/utils/file";
 import { formatPageCount } from "@/lib/utils/format";
@@ -57,7 +57,6 @@ export const SplitToolClient = () => {
   const toast = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
-  const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [pageCount, setPageCount] = useState(0);
   const [mode, setMode] = useState<"range" | "every" | "extract">("range");
   const [rangesInput, setRangesInput] = useState("1-2, 3-4");
@@ -80,22 +79,12 @@ export const SplitToolClient = () => {
           return;
         }
         setPageCount(count);
-
-        const nextThumbs: string[] = [];
-        for (let page = 1; page <= count; page += 1) {
-          nextThumbs.push(await renderThumbnail(bytes, page));
-        }
-
-        if (!cancelled) {
-          setThumbnails(nextThumbs);
-          setSelectedPages(new Set(Array.from({ length: count }, (_, index) => index)));
-        }
+        setSelectedPages(new Set(Array.from({ length: count }, (_, index) => index)));
       } catch (error) {
         if (cancelled) {
           return;
         }
         setPageCount(0);
-        setThumbnails([]);
         setSelectedPages(new Set());
         toast.error(
           "Could not read PDF pages",
@@ -117,7 +106,7 @@ export const SplitToolClient = () => {
   const loadFile = async (next: File) => {
     setFile(next);
     setBytes(new Uint8Array(await next.arrayBuffer()));
-    setThumbnails([]);
+    setPageCount(0);
   };
 
   const downloadSplitOutputs = async (outputs: SplitOutput[], zipName: string, sourceFileName: string, inputBytes: number) => {
@@ -175,7 +164,7 @@ export const SplitToolClient = () => {
         onRemove={() => {
           setFile(null);
           setBytes(null);
-          setThumbnails([]);
+          setPageCount(0);
         }}
       />
 
@@ -265,14 +254,15 @@ export const SplitToolClient = () => {
         ) : null}
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {thumbnails.map((thumbnail, index) => {
+          {Array.from({ length: pageCount }, (_, index) => {
             const selected = selectedPages.has(index);
 
             return (
-              <button
+              <LazyPdfThumbnail
                 key={`split-thumb-${index}`}
-                type="button"
-                className={`rounded-brutal border-2 p-2 text-left ${selected ? "border-primary bg-green-100" : "border-ink bg-paper"}`}
+                bytes={bytes}
+                pageNumber={index + 1}
+                selected={selected}
                 onClick={() => {
                   if (mode !== "extract") {
                     return;
@@ -288,14 +278,8 @@ export const SplitToolClient = () => {
                   });
                 }}
               >
-                <ZoomablePreview
-                  src={thumbnail}
-                  alt={`Page ${index + 1}`}
-                  className="mb-2"
-                  imageClassName="h-auto w-full rounded-brutal border border-ink"
-                />
                 <p className="text-xs font-semibold">Page {index + 1}</p>
-              </button>
+              </LazyPdfThumbnail>
             );
           })}
         </div>

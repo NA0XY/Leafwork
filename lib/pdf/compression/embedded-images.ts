@@ -11,6 +11,7 @@ import {
   type FlateDecodeParams,
   type ProgressCallback
 } from "@/lib/pdf/compression/types";
+import { stripPdfMetadata } from "@/lib/pdf/security";
 import { logger } from "@/lib/utils/logger";
 const getComponentsForColorSpace = (colorSpace: string): number | null => {
   if (colorSpace.includes("DeviceGray") || colorSpace.includes("/G")) {
@@ -154,6 +155,12 @@ const imageCandidateToCanvas = async (candidate: EmbeddedImageCandidate, maxDime
 
   if (candidate.filters.includes(PDF_IMAGE_FILTERS.dct)) {
     const bitmap = await createImageBitmap(new Blob([contents], { type: "image/jpeg" }));
+
+    if (bitmap.width * bitmap.height > MAX_CANVAS_PIXELS) {
+      bitmap.close();
+      return null;
+    }
+
     const dimensions = getConstrainedDimensions(bitmap.width, bitmap.height, maxDimension);
     const canvas = document.createElement("canvas");
     canvas.width = dimensions.width;
@@ -308,20 +315,14 @@ const applyEmbeddedImageCompressionPass = async (
         continue;
       }
 
-      const nextDict = doc.context.obj({
-        Type: "XObject",
-        Subtype: "Image",
-        Width: finalCanvas.width,
-        Height: finalCanvas.height,
-        BitsPerComponent: 8,
-        ColorSpace: "DeviceRGB",
-        Filter: "DCTDecode"
-      }) as import("pdf-lib").PDFDict;
-      nextDict.set(pdfLib.PDFName.of("Filter"), pdfLib.PDFName.of("DCTDecode"));
+      const nextDict = pdfLib.PDFDict.withContext(doc.context);
+      nextDict.set(pdfLib.PDFName.of("Type"), pdfLib.PDFName.of("XObject"));
+      nextDict.set(pdfLib.PDFName.of("Subtype"), pdfLib.PDFName.of("Image"));
       nextDict.set(pdfLib.PDFName.of("Width"), pdfLib.PDFNumber.of(finalCanvas.width));
       nextDict.set(pdfLib.PDFName.of("Height"), pdfLib.PDFNumber.of(finalCanvas.height));
       nextDict.set(pdfLib.PDFName.of("BitsPerComponent"), pdfLib.PDFNumber.of(8));
       nextDict.set(pdfLib.PDFName.of("ColorSpace"), pdfLib.PDFName.of("DeviceRGB"));
+      nextDict.set(pdfLib.PDFName.of("Filter"), pdfLib.PDFName.of("DCTDecode"));
       nextDict.delete(pdfLib.PDFName.of("DecodeParms"));
       nextDict.delete(pdfLib.PDFName.of("Length"));
       nextDict.delete(pdfLib.PDFName.of("Interpolate"));
@@ -344,14 +345,7 @@ const applyEmbeddedImageCompressionPass = async (
   }
 
   if (options.stripMetadata) {
-    doc.setTitle("");
-    doc.setAuthor("");
-    doc.setSubject("");
-    doc.setKeywords([]);
-    const metadataRef = doc.catalog.get(pdfLib.PDFName.of("Metadata"));
-    if (metadataRef) {
-      doc.catalog.delete(pdfLib.PDFName.of("Metadata"));
-    }
+    stripPdfMetadata(pdfLib, doc);
   }
 
   const optimizedBytes = await doc.save({

@@ -1,9 +1,6 @@
 "use client";
 
 export const PDF_SAFETY_LIMITS = {
-  maxFileBytes: 75 * 1024 * 1024,
-  maxSandboxTotalBytes: 200 * 1024 * 1024,
-  maxPages: 250,
   maxImagePixels: 28_000_000,
   maxRasterPixels: 24_000_000,
   redactionRenderScale: 2,
@@ -11,46 +8,6 @@ export const PDF_SAFETY_LIMITS = {
 } as const;
 
 export type BrowserLocalFileKind = "pdf" | "image";
-
-const formatLimit = (bytes: number): string => {
-  if (bytes >= 1024 * 1024) {
-    return `${Math.round(bytes / (1024 * 1024))} MB`;
-  }
-  return `${Math.round(bytes / 1024)} KB`;
-};
-
-export const validateBrowserLocalFile = (
-  file: File,
-  options: { kind?: BrowserLocalFileKind; maxBytes?: number } = {}
-): string | null => {
-  const maxBytes = options.maxBytes ?? PDF_SAFETY_LIMITS.maxFileBytes;
-  if (file.size > maxBytes) {
-    return `${file.name} is larger than the browser-local ${formatLimit(maxBytes)} file limit.`;
-  }
-  return null;
-};
-
-export const validateBrowserLocalTotalBytes = (
-  currentBytes: number,
-  incomingBytes: number,
-  maxBytes = PDF_SAFETY_LIMITS.maxSandboxTotalBytes
-): string | null => {
-  if (currentBytes + incomingBytes > maxBytes) {
-    return `This workspace would exceed the browser-local ${formatLimit(maxBytes)} total file budget.`;
-  }
-  return null;
-};
-
-export const validateBrowserLocalPageBudget = (
-  pageCount: number,
-  context = "This PDF",
-  maxPages = PDF_SAFETY_LIMITS.maxPages
-): string | null => {
-  if (pageCount > maxPages) {
-    return `${context} has ${pageCount} pages, above the browser-local ${maxPages} page limit.`;
-  }
-  return null;
-};
 
 export const getSafeRasterScale = (
   width: number,

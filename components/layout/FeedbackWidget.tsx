@@ -142,8 +142,8 @@ export const FeedbackWidget = () => {
         {status === "success" ? (
           <div className="space-y-4">
             <div className="rounded-brutal border-2 border-green-800 bg-green-50 p-4">
-              <p className="font-bold text-green-900">Feedback saved</p>
-              <p className="mt-1 text-sm text-green-900">Thanks. It is stored in Supabase and ready to review.</p>
+              <p className="font-bold text-green-900">Thank you for your feedback</p>
+              <p className="mt-1 text-sm text-green-900">We have received it and will review it soon.</p>
             </div>
             <div className="flex justify-end">
               <Button type="button" onClick={closeModal}>

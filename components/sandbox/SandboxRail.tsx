@@ -11,6 +11,8 @@ import {
   Minus,
   PanelRightOpen,
   Plus,
+  RotateCcw,
+  RotateCw,
   Trash2,
   Upload,
   X
@@ -35,22 +37,24 @@ type PageRowProps = {
   file: SandboxFile;
   index: number;
   selected: boolean;
+  marked: boolean;
   onToggle: () => void;
 };
 
-const formatMarkedPages = (pages: SandboxPageRef[], markedPageIds: Set<string>): string => {
+const formatActivePages = (pages: SandboxPageRef[], activePageIds: Set<string>): string => {
   const marked = pages
-    .filter((page) => markedPageIds.has(page.id))
+    .filter((page) => activePageIds.has(page.id))
     .map((page) => page.pageIndex + 1)
     .sort((a, b) => a - b);
 
   return formatMarkedPageNumbers(marked);
 };
 
-const WorkspacePageRow = ({ page, file, index, selected, onToggle }: PageRowProps) => {
+const WorkspacePageRow = ({ page, file, index, selected, marked, onToggle }: PageRowProps) => {
   const [src, setSrc] = useState<string | null>(null);
   const [visible, setVisible] = useState(false);
   const rowRef = useRef<HTMLButtonElement | null>(null);
+  const active = selected || marked;
 
   useEffect(() => {
     const node = rowRef.current;
@@ -63,7 +67,7 @@ const WorkspacePageRow = ({ page, file, index, selected, onToggle }: PageRowProp
           observer.disconnect();
         }
       },
-      { rootMargin: "140px" }
+      { rootMargin: "1000px 0px" }
     );
 
     observer.observe(node);
@@ -94,9 +98,9 @@ const WorkspacePageRow = ({ page, file, index, selected, onToggle }: PageRowProp
       className={cn(
         "grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-brutal border-2 border-ink bg-surface px-2 py-1.5 text-left",
         "transition-colors hover:bg-green-50",
-        selected && "bg-green-100"
+        active && "border-primary bg-green-100 ring-1 ring-primary"
       )}
-      aria-pressed={selected}
+      aria-pressed={active}
       onClick={onToggle}
     >
       <span className="flex h-9 w-7 items-center justify-center overflow-hidden rounded-brutal border border-ink bg-paper">
@@ -104,7 +108,10 @@ const WorkspacePageRow = ({ page, file, index, selected, onToggle }: PageRowProp
       </span>
       <span className="min-w-0">
         <span className="block truncate text-xs font-bold">Page {page.pageIndex + 1}</span>
-        <span className="block truncate text-[11px] text-muted">Output #{index + 1}</span>
+        <span className={cn("block truncate text-[11px]", active ? "font-semibold text-ink" : "text-muted")}>
+          Output #{index + 1}
+          {active ? " - Selected" : ""}
+        </span>
       </span>
       <span className="text-[11px] font-semibold text-muted">{page.rotation ? `${page.rotation}deg` : ""}</span>
     </button>
@@ -125,11 +132,37 @@ const ReaderPage = ({
   onToggle: () => void;
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const [active, setActive] = useState(false);
+  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+
+  useEffect(() => {
+    const node = sectionRef.current;
+    if (!node) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setActive(Boolean(entry?.isIntersecting));
+      },
+      { rootMargin: "1200px 0px" }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) {
+      return;
+    }
+
+    if (!active) {
+      canvas.width = 0;
+      canvas.height = 0;
+      setStatus("idle");
       return;
     }
 
@@ -151,14 +184,14 @@ const ReaderPage = ({
       cancelled = true;
       controller.abort();
     };
-  }, [file.bytes, page.pageIndex, zoom]);
+  }, [active, file.bytes, page.pageIndex, zoom]);
 
   return (
-    <section className="mx-auto w-full max-w-[920px]">
+    <section ref={sectionRef} className="mx-auto min-h-[70vh] w-full max-w-[920px]">
       <div className="mb-2 flex items-center justify-between gap-3">
         <p className="text-sm font-bold">Page {page.pageIndex + 1}</p>
         <Button type="button" size="sm" variant={marked ? "primary" : "secondary"} onClick={onToggle}>
-          {marked ? "Marked" : "Mark page"}
+          {marked ? "Selected" : "Select page"}
         </Button>
       </div>
       <div
@@ -169,7 +202,7 @@ const ReaderPage = ({
       >
         {status !== "ready" ? (
           <div className="absolute inset-3 flex items-center justify-center rounded-brutal bg-surface/80 text-sm font-semibold text-muted">
-            {status === "error" ? "Unable to render page" : "Rendering page..."}
+            {status === "error" ? "Unable to render page" : status === "idle" ? "Page queued" : "Rendering page..."}
           </div>
         ) : null}
         <canvas ref={canvasRef} className="mx-auto block max-w-none rounded-sm bg-white" />
@@ -181,19 +214,31 @@ const ReaderPage = ({
 const SandboxFileViewer = ({
   file,
   pages,
+  selectedPageIds,
   markedPageIds,
   onClose,
-  onToggleMark,
-  onClearMarks
+  onTogglePage,
+  onSelectAll,
+  onClearPages,
+  onRotatePages,
+  onDeletePages
 }: {
   file: SandboxFile;
   pages: SandboxPageRef[];
+  selectedPageIds: Set<string>;
   markedPageIds: Set<string>;
   onClose: () => void;
-  onToggleMark: (pageId: string) => void;
-  onClearMarks: () => void;
+  onTogglePage: (pageId: string) => void;
+  onSelectAll: (pageIds: string[]) => void;
+  onClearPages: (pageIds: string[]) => void;
+  onRotatePages: (pageIds: string[], degrees: 90 | 180 | 270) => void;
+  onDeletePages: (pageIds: string[]) => void;
 }) => {
-  const markedSummary = formatMarkedPages(pages, markedPageIds);
+  const activePageIds = useMemo(() => new Set([...selectedPageIds, ...markedPageIds]), [markedPageIds, selectedPageIds]);
+  const markedSummary = formatActivePages(pages, activePageIds);
+  const pageIds = useMemo(() => pages.map((page) => page.id), [pages]);
+  const selectedPageIdsForFile = useMemo(() => pageIds.filter((pageId) => activePageIds.has(pageId)), [activePageIds, pageIds]);
+  const selectedCount = selectedPageIdsForFile.length;
   const [zoom, setZoom] = useState(1.25);
   const zoomLabel = `${Math.round(zoom * 100)}%`;
 
@@ -208,7 +253,7 @@ const SandboxFileViewer = ({
             </h3>
             <p className="mt-1 text-xs text-muted">
               {formatPageCount(pages.length)}
-              {markedSummary ? ` - Marked: ${markedSummary}` : " - No pages marked"}
+              {markedSummary ? ` - Selected: ${markedSummary}` : " - No pages selected"}
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -233,8 +278,23 @@ const SandboxFileViewer = ({
                 <Plus className="h-4 w-4" />
               </button>
             </div>
-            <Button type="button" size="sm" variant="secondary" disabled={!markedSummary} onClick={onClearMarks}>
-              Clear marks
+            <Button type="button" size="sm" variant="secondary" disabled={!pages.length} onClick={() => onSelectAll(pageIds)}>
+              Select all
+            </Button>
+            <Button type="button" size="sm" variant="secondary" disabled={!selectedCount} onClick={() => onClearPages(pageIds)}>
+              Clear
+            </Button>
+            <Button type="button" size="sm" variant="secondary" disabled={!selectedCount} onClick={() => onRotatePages(selectedPageIdsForFile, 270)}>
+              <RotateCcw className="h-3.5 w-3.5" />
+              Rotate
+            </Button>
+            <Button type="button" size="sm" variant="secondary" disabled={!selectedCount} onClick={() => onRotatePages(selectedPageIdsForFile, 90)}>
+              <RotateCw className="h-3.5 w-3.5" />
+              Rotate
+            </Button>
+            <Button type="button" size="sm" variant="danger" disabled={!selectedCount} onClick={() => onDeletePages(selectedPageIdsForFile)}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
             </Button>
             <button
               type="button"
@@ -255,9 +315,9 @@ const SandboxFileViewer = ({
                 key={page.id}
                 file={file}
                 page={page}
-                marked={markedPageIds.has(page.id)}
+                marked={markedPageIds.has(page.id) || selectedPageIds.has(page.id)}
                 zoom={zoom}
-                onToggle={() => onToggleMark(page.id)}
+                onToggle={() => onTogglePage(page.id)}
               />
             ))}
           </div>
@@ -287,9 +347,12 @@ const SandboxRailContent = ({ onClose }: { onClose?: () => void }) => {
     addFiles,
     removeFile,
     togglePageSelection,
-    togglePageMark,
     clearFilePageMarks,
+    selectPageIds,
+    clearPageIds,
+    deletePageIds,
     deleteSelectedPages,
+    rotatePageIds,
     clearAll,
     setProcessing,
     setError
@@ -307,7 +370,8 @@ const SandboxRailContent = ({ onClose }: { onClose?: () => void }) => {
   }, [pages]);
 
   const inputBytes = files.reduce((total, file) => total + file.size, 0);
-  const selectedCount = selectedPageIds.size;
+  const activePageIds = useMemo(() => new Set([...selectedPageIds, ...markedPageIds]), [markedPageIds, selectedPageIds]);
+  const selectedCount = activePageIds.size;
   const viewingFile = viewingFileId ? fileById.get(viewingFileId) : undefined;
   const viewingPages = viewingFileId ? pagesByFile.get(viewingFileId) ?? [] : [];
 
@@ -451,7 +515,7 @@ const SandboxRailContent = ({ onClose }: { onClose?: () => void }) => {
             {files.map((file) => {
               const filePages = pagesByFile.get(file.id) ?? [];
               const expanded = expandedFileIds.has(file.id);
-              const markedSummary = formatMarkedPages(filePages, markedPageIds);
+              const markedSummary = formatActivePages(filePages, activePageIds);
               return (
                 <div
                   key={file.id}
@@ -483,7 +547,7 @@ const SandboxRailContent = ({ onClose }: { onClose?: () => void }) => {
                       </span>
                       {markedSummary ? (
                         <span className="mt-1 inline-flex rounded-brutal border border-ink bg-green-100 px-1.5 py-0.5 text-[11px] font-semibold">
-                          Marked: {markedSummary}
+                          Selected: {markedSummary}
                         </span>
                       ) : null}
                     </button>
@@ -511,13 +575,15 @@ const SandboxRailContent = ({ onClose }: { onClose?: () => void }) => {
                     <div className="space-y-1 border-t-2 border-ink p-2">
                       {filePages.map((page) => {
                         const outputIndex = pages.findIndex((candidate) => candidate.id === page.id);
+                        const active = activePageIds.has(page.id);
                         return (
                           <WorkspacePageRow
                             key={page.id}
                             page={page}
                             file={fileById.get(page.fileId) ?? file}
                             index={outputIndex}
-                            selected={selectedPageIds.has(page.id)}
+                            selected={active}
+                            marked={markedPageIds.has(page.id)}
                             onToggle={() => togglePageSelection(page.id)}
                           />
                         );
@@ -559,10 +625,22 @@ const SandboxRailContent = ({ onClose }: { onClose?: () => void }) => {
         <SandboxFileViewer
           file={viewingFile}
           pages={viewingPages}
+          selectedPageIds={selectedPageIds}
           markedPageIds={markedPageIds}
           onClose={() => setViewingFileId(null)}
-          onToggleMark={togglePageMark}
-          onClearMarks={() => clearFilePageMarks(viewingFile.id)}
+          onTogglePage={togglePageSelection}
+          onSelectAll={selectPageIds}
+          onClearPages={(pageIds) => {
+            clearPageIds(pageIds);
+            clearFilePageMarks(viewingFile.id);
+          }}
+          onRotatePages={rotatePageIds}
+          onDeletePages={(pageIds) => {
+            deletePageIds(pageIds);
+            if (pageIds.length >= viewingPages.length) {
+              setViewingFileId(null);
+            }
+          }}
         />
       ) : null}
     </div>
